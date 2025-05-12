@@ -2,6 +2,8 @@
 
 A simple yet powerful CLI tool to generate complete Golang project templates with a single command.
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/vukyn/gobuild)
+
 ## Features
 
 -   Generates a complete project structure in seconds
