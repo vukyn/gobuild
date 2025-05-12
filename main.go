@@ -22,7 +22,7 @@ func main() {
 				Name:     "name",
 				Aliases:  []string{"n"},
 				Usage:    "Project name",
-				Required: true,
+				Required: false,
 			},
 			&cli.StringFlag{
 				Name:    "version",
@@ -49,6 +49,10 @@ func main() {
 }
 
 func generateProject(projectName, goVersion string) error {
+	if projectName == "" {
+		return fmt.Errorf("project name is required")
+	}
+
 	if goVersion == "" {
 		// Get current Go version
 		if out, err := exec.Command("go", "version").Output(); err == nil {
