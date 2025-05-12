@@ -15,7 +15,6 @@ import (
 
 var (
 	Version = "1.2.1"
-	Module  = "github.com/vukyn/gobuild"
 )
 
 func main() {
