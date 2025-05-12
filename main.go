@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	Version = "1.2.1"
+	Version = "1.2.2"
 )
 
 func main() {
@@ -42,7 +42,7 @@ func main() {
 			} else {
 				projectName = c.Args().First()
 			}
-			goVersion := c.String("version")
+			goVersion := c.String("go")
 			return generateProject(projectName, goVersion)
 		},
 	}
