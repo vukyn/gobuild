@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 
 	"github.com/vukyn/gobuild/tmpl"
@@ -13,10 +14,39 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var (
+	Version = getVersion()
+	Module  = "github.com/vukyn/gobuild"
+)
+
+func getVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "dev"
+	}
+
+	// Get version from build info
+	for _, dep := range info.Deps {
+		if dep.Path == Module {
+			return dep.Version
+		}
+	}
+
+	// If not found in deps, try to get from build settings
+	for _, setting := range info.Settings {
+		if setting.Key == "vcs.revision" {
+			return setting.Value[:7] // Return first 7 characters of commit hash
+		}
+	}
+
+	return "dev"
+}
+
 func main() {
 	app := &cli.App{
-		Name:  "gobuild",
-		Usage: "Generate a new Golang project template",
+		Name:    "gobuild",
+		Usage:   "Generate a new Golang project template",
+		Version: Version,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:     "name",

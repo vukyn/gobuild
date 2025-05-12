@@ -58,13 +58,13 @@ hello-world/
 
 ## Example Output
 
-```
+```bash
 $ gobuild awesomeproject
-Successfully created awesomeproject project template!
-Running go mod tidy...
-Initializing git repository...
-Initialized empty Git repository in /Users/username/awesomeproject/.git/
-Project setup complete, you are ready to go!
+$ Successfully created awesomeproject project template!
+$ Running go mod tidy...
+$ Initializing git repository...
+$ Initialized empty Git repository in /Users/username/awesomeproject/.git/
+$ Project setup complete, you are ready to go!
 ```
 
 ## Contributing
