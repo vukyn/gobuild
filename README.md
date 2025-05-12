@@ -60,7 +60,7 @@ hello-world/
 
 ## Example Output
 
-```bash
+```
 $ gobuild awesomeproject
 $ Successfully created awesomeproject project template!
 $ Running go mod tidy...
