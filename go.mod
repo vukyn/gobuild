@@ -1,4 +1,4 @@
-module gobuild
+module github.com/vukyn/gobuild
 
 go 1.24.0
 

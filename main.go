@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"gobuild/tmpl"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/vukyn/gobuild/tmpl"
 
 	"github.com/urfave/cli/v2"
 )
