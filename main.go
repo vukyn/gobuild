@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime/debug"
 	"strings"
 
 	"github.com/vukyn/gobuild/tmpl"
@@ -15,32 +14,9 @@ import (
 )
 
 var (
-	Version = getVersion()
+	Version = "1.0.0"
 	Module  = "github.com/vukyn/gobuild"
 )
-
-func getVersion() string {
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return "dev"
-	}
-
-	// Get version from build info
-	for _, dep := range info.Deps {
-		if dep.Path == Module {
-			return dep.Version
-		}
-	}
-
-	// If not found in deps, try to get from build settings
-	for _, setting := range info.Settings {
-		if setting.Key == "vcs.revision" {
-			return setting.Value[:7] // Return first 7 characters of commit hash
-		}
-	}
-
-	return "dev"
-}
 
 func main() {
 	app := &cli.App{
@@ -55,9 +31,9 @@ func main() {
 				Required: false,
 			},
 			&cli.StringFlag{
-				Name:    "go",
-				Usage:   "Go version",
-				Value:   "1.24",
+				Name:  "go",
+				Usage: "Go version",
+				Value: "1.24",
 			},
 		},
 		Action: func(c *cli.Context) error {
