@@ -35,6 +35,11 @@ run:
 	go run main.go
 	`
 
+	GIT_IGNORE = `# Git ignore
+.env
+bin/
+`
+
 	README = `# ` + PROJECT_NAME + `
 
 This is a Go project generated using gobuild CLI tool.

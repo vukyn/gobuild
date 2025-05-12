@@ -71,11 +71,12 @@ func generateProject(projectName, goVersion string) error {
 
 	// Template files to be created
 	files := map[string]string{
-		"main.go":   tmpl.MAIN_GO,
-		"go.mod":    tmpl.GO_MOD,
-		".env":      tmpl.ENV,
-		"Makefile":  tmpl.MAKEFILE,
-		"README.md": tmpl.README,
+		"main.go":    tmpl.MAIN_GO,
+		"go.mod":     tmpl.GO_MOD,
+		".env":       tmpl.ENV,
+		"Makefile":   tmpl.MAKEFILE,
+		"README.md":  tmpl.README,
+		".gitignore": tmpl.GIT_IGNORE,
 	}
 
 	// Create each file in the project directory
@@ -89,6 +90,34 @@ func generateProject(projectName, goVersion string) error {
 	}
 
 	fmt.Printf("Successfully created %s project template!\n", projectName)
-	fmt.Printf("To get started:\n\ncd %s\ngo mod tidy\n", projectName)
+
+	// Change to project directory for subsequent commands
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	// Run go mod tidy in the project directory
+	projectDir := filepath.Join(currentDir, projectName)
+	goModTidyCmd := exec.Command("go", "mod", "tidy")
+	goModTidyCmd.Dir = projectDir
+	goModTidyCmd.Stdout = os.Stdout
+	goModTidyCmd.Stderr = os.Stderr
+	fmt.Println("Running go mod tidy...")
+	if err := goModTidyCmd.Run(); err != nil {
+		fmt.Printf("Warning: Failed to run go mod tidy: %v\n", err)
+	}
+
+	// Initialize git repository
+	gitInitCmd := exec.Command("git", "init")
+	gitInitCmd.Dir = projectDir
+	gitInitCmd.Stdout = os.Stdout
+	gitInitCmd.Stderr = os.Stderr
+	fmt.Println("Initializing git repository...")
+	if err := gitInitCmd.Run(); err != nil {
+		fmt.Printf("Warning: Failed to initialize git repository: %v\n", err)
+	}
+
+	fmt.Println("Project setup complete, you are ready to go!")
 	return nil
 }
