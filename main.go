@@ -55,8 +55,7 @@ func main() {
 				Required: false,
 			},
 			&cli.StringFlag{
-				Name:    "version",
-				Aliases: []string{"v"},
+				Name:    "go",
 				Usage:   "Go version",
 				Value:   "1.24",
 			},

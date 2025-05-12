@@ -42,7 +42,7 @@ go install github.com/vukyn/gobuild@latest
 gobuild hello-world
 
 # With custom go version
-gobuild hello-world -v 1.24.2
+gobuild hello-world --go 1.24.2
 ```
 
 ## Generated Project Structure
