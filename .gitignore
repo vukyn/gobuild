@@ -1,5 +1,7 @@
+# Git ignore
 .env
 bin/
+todo
 
 # Node
 node_modules/
