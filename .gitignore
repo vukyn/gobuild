@@ -1,2 +1,11 @@
 .env
 bin/
+
+# Node
+node_modules/
+
+# Python
+venv/
+
+# MacOS
+.DS_Store
