@@ -9,19 +9,16 @@ import (
 	"strings"
 
 	"github.com/vukyn/gobuild/tmpl"
+	"github.com/vukyn/gobuild/version"
 
 	"github.com/urfave/cli/v2"
-)
-
-var (
-	Version = "1.2.2"
 )
 
 func main() {
 	app := &cli.App{
 		Name:    "gobuild",
 		Usage:   "Generate a new Golang project template",
-		Version: Version,
+		Version: version.Current,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:     "name",
