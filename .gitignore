@@ -2,6 +2,7 @@
 .env
 bin/
 todo
+test/
 
 # Node
 node_modules/
