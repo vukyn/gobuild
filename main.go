@@ -86,6 +86,7 @@ func generateProject(projectName, goVersion string) error {
 		"Makefile":   tmpl.MAKEFILE,
 		"README.md":  tmpl.README,
 		".gitignore": tmpl.GIT_IGNORE,
+		"todo":       tmpl.TODO,
 	}
 
 	// Create each file in the project directory
