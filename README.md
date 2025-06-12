@@ -55,6 +55,7 @@ hello-world/
 ├── Makefile            # Common development commands
 ├── README.md           # Project documentation
 ├── go.mod              # Go module configuration
+├── todo                # Todo list
 └── main.go             # Main application entry point
 ```
 
