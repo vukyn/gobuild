@@ -71,7 +71,7 @@ func generateProject(projectName, goVersion string) error {
 	}
 
 	// Create project directory
-	if err := os.MkdirAll(projectName, 0755); err != nil {
+	if err := os.MkdirAll(projectName, 0755); err != nil { // #nosec G301 -- scaffolded project dir must be user-browsable
 		return fmt.Errorf("failed to create project directory: %w", err)
 	}
 
@@ -91,7 +91,7 @@ func generateProject(projectName, goVersion string) error {
 		content = strings.ReplaceAll(content, tmpl.PROJECT_NAME, projectName)
 		content = strings.ReplaceAll(content, tmpl.GO_VERSION, goVersion)
 		filePath := filepath.Join(projectName, filename)
-		if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(filePath, []byte(content), 0644); err != nil { // #nosec G306 -- generated source files use conventional 0644, no secrets
 			return fmt.Errorf("failed to create %s: %w", filename, err)
 		}
 	}
