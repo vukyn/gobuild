@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/vukyn/gobuild/tmpl"
 	"github.com/vukyn/gobuild/version"
 
 	"github.com/urfave/cli/v2"
@@ -31,6 +30,12 @@ func main() {
 				Usage: "Go version",
 				Value: "1.24",
 			},
+			&cli.StringFlag{
+				Name:    "http-template",
+				Aliases: []string{"preset"},
+				Usage:   "Project preset (base|fiber)",
+				Value:   "base",
+			},
 		},
 		Action: func(c *cli.Context) error {
 			var projectName string
@@ -40,16 +45,62 @@ func main() {
 				projectName = c.Args().First()
 			}
 			goVersion := c.String("go")
-			return generateProject(projectName, goVersion)
+			preset := c.String("http-template")
+			return generateProject(projectName, goVersion, preset)
 		},
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	if err := app.Run(reorderArgs(os.Args)); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func generateProject(projectName, goVersion string) error {
+// valueFlags lists the flags that consume the following token as their value.
+// reorderArgs uses this to skip flag values when separating flags from the
+// positional project-name argument.
+var valueFlags = map[string]bool{
+	"-n": true, "--name": true,
+	"--go":            true,
+	"--http-template": true,
+	"--preset":        true,
+}
+
+// reorderArgs moves flag tokens ahead of positional arguments so that
+// "gobuild <name> --flag value" parses the same as "gobuild --flag value <name>".
+// urfave/cli v2 stops flag parsing at the first positional argument, so without
+// this a trailing --http-template/--go would be silently ignored.
+func reorderArgs(args []string) []string {
+	if len(args) <= 1 {
+		return args
+	}
+
+	flags := make([]string, 0, len(args))
+	positionals := make([]string, 0, len(args))
+
+	rest := args[1:]
+	for index := 0; index < len(rest); index++ {
+		token := rest[index]
+		if strings.HasPrefix(token, "-") {
+			flags = append(flags, token)
+			// Consume the value token for flags that expect one, unless the
+			// value was already attached via "--flag=value".
+			if !strings.Contains(token, "=") && valueFlags[token] && index+1 < len(rest) {
+				index++
+				flags = append(flags, rest[index])
+			}
+			continue
+		}
+		positionals = append(positionals, token)
+	}
+
+	reordered := make([]string, 0, len(args))
+	reordered = append(reordered, args[0])
+	reordered = append(reordered, flags...)
+	reordered = append(reordered, positionals...)
+	return reordered
+}
+
+func generateProject(projectName, goVersion, preset string) error {
 	if projectName == "" {
 		return fmt.Errorf("project name is required")
 	}
@@ -75,25 +126,14 @@ func generateProject(projectName, goVersion string) error {
 		return fmt.Errorf("failed to create project directory: %w", err)
 	}
 
-	// Template files to be created
-	files := map[string]string{
-		"main.go":    tmpl.MAIN_GO,
-		"go.mod":     tmpl.GO_MOD,
-		".env":       tmpl.ENV,
-		"Makefile":   tmpl.MAKEFILE,
-		"README.md":  tmpl.README,
-		".gitignore": tmpl.GIT_IGNORE,
-		"todo":       tmpl.TODO,
+	// Render the selected preset's template tree into the project directory
+	data := templateData{
+		ProjectName: projectName,
+		GoVersion:   goVersion,
+		Preset:      preset,
 	}
-
-	// Create each file in the project directory
-	for filename, content := range files {
-		content = strings.ReplaceAll(content, tmpl.PROJECT_NAME, projectName)
-		content = strings.ReplaceAll(content, tmpl.GO_VERSION, goVersion)
-		filePath := filepath.Join(projectName, filename)
-		if err := os.WriteFile(filePath, []byte(content), 0644); err != nil { // #nosec G306 -- generated source files use conventional 0644, no secrets
-			return fmt.Errorf("failed to create %s: %w", filename, err)
-		}
+	if err := renderPreset(preset, data, projectName); err != nil {
+		return err
 	}
 
 	fmt.Printf("Successfully created %s project template!\n", projectName)

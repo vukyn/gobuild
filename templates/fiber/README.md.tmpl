@@ -1,0 +1,64 @@
+# {{.ProjectName}}
+
+This is a Go project generated using gobuild CLI tool (fiber preset).
+
+It ships a [Fiber v3](https://github.com/gofiber/fiber) HTTP server with a
+`/health` endpoint and graceful shutdown.
+
+## Prerequisites
+
+- Go {{.GoVersion}} or higher
+- Make (optional, for using Makefile commands)
+
+## Installation
+
+1. Clone this repository:
+   ```bash
+   git clone <your-repo-url>
+   cd {{.ProjectName}}
+   ```
+
+2. Install dependencies:
+   ```bash
+   go mod tidy
+   ```
+
+## Usage
+
+### Using Make commands
+
+- Run the project:
+  ```bash
+  make run
+  ```
+
+### Direct Go commands
+
+- Run the project:
+  ```bash
+  go run main.go
+  ```
+
+The server listens on `APP_PORT` (default `8080`). Once running, check the
+health endpoint:
+
+```bash
+curl http://localhost:8080/health
+# {"status":"ok"}
+```
+
+Send `Ctrl+C` (SIGINT) to trigger a graceful shutdown.
+
+## Project Structure
+
+- `main.go`: Fiber app bootstrap, route mounting, graceful shutdown
+- `internal/handler/health.go`: `/health` handler
+- `go.mod`: Go module definition
+- `go.sum`: Go module checksums
+- `.env`: Environment variables
+- `Makefile`: Build and development commands
+- `README.md`: Project documentation
+
+## License
+
+This project is licensed under the MIT License.

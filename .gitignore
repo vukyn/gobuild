@@ -4,6 +4,9 @@ bin/
 todo
 test/
 
+# Keep golden test fixtures even though "todo"/"test/" patterns above are broad
+!testdata/**
+
 # Node
 node_modules/
 
