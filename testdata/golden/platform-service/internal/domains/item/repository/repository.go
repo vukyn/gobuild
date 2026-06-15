@@ -1,0 +1,173 @@
+package repository
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"strings"
+
+	"github.com/vukyn/testproj/internal/domains/item/entity"
+	"github.com/vukyn/testproj/internal/domains/item/exceptions"
+	"github.com/vukyn/testproj/internal/domains/item/models"
+
+	pkgCtx "github.com/vukyn/kuery/ctx"
+	pkgErr "github.com/vukyn/kuery/http/errors"
+
+	"github.com/uptrace/bun"
+	"github.com/vukyn/kuery/cryp"
+)
+
+type repository struct {
+	db *bun.DB
+}
+
+func NewRepository(db *bun.DB) IRepository {
+	return &repository{db: db}
+}
+
+func (r *repository) Create(ctx context.Context, req entity.CreateRequest) (string, error) {
+	userID := pkgCtx.GetUserID(ctx)
+	item := &entity.Item{
+		ID:          cryp.ULID(),
+		Name:        req.Name,
+		Description: req.Description,
+		Status:      req.Status,
+		CreatedBy:   userID,
+	}
+	if _, err := r.db.NewInsert().Model(item).Exec(ctx); err != nil {
+		return "", pkgErr.DatabaseError(err.Error())
+	}
+	return item.ID, nil
+}
+
+func (r *repository) GetByID(ctx context.Context, id string) (entity.Item, error) {
+	if id == "" {
+		return entity.Item{}, pkgErr.InvalidRequest("id is required")
+	}
+
+	item := entity.Item{}
+	err := r.db.NewSelect().
+		Model(&item).
+		Where("id = ?", id).
+		Scan(ctx)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return entity.Item{}, exceptions.NewItemNotFoundError()
+		}
+		return entity.Item{}, pkgErr.DatabaseError(err.Error())
+	}
+	return item, nil
+}
+
+func (r *repository) List(ctx context.Context, req models.ListRequest) ([]entity.Item, int64, error) {
+	query := r.db.NewSelect().
+		Model((*entity.Item)(nil))
+
+	// Search filter (LOWER + LIKE for SQLite compatibility — no ILIKE).
+	if req.Search != "" {
+		pattern := "%" + strings.ToLower(req.Search) + "%"
+		query = query.Where("(LOWER(name) LIKE ? OR LOWER(description) LIKE ?)", pattern, pattern)
+	}
+
+	if req.Status != 0 {
+		query = query.Where("status = ?", req.Status)
+	}
+
+	total, err := query.Count(ctx)
+	if err != nil {
+		return nil, 0, pkgErr.DatabaseError(err.Error())
+	}
+
+	page := req.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := req.PageSize
+	if pageSize < 1 {
+		pageSize = 20
+	}
+
+	items := make([]entity.Item, 0)
+	offset := (page - 1) * pageSize
+	err = query.
+		Offset(offset).
+		Limit(pageSize).
+		Order("created_at DESC").
+		Scan(ctx, &items)
+	if err != nil {
+		return nil, 0, pkgErr.DatabaseError(err.Error())
+	}
+
+	return items, int64(total), nil
+}
+
+func (r *repository) Update(ctx context.Context, req entity.UpdateRequest) error {
+	if req.ID == "" {
+		return pkgErr.InvalidRequest("id is required")
+	}
+
+	item := &entity.Item{
+		ID: req.ID,
+	}
+	fields := []string{}
+
+	if req.Name != nil {
+		item.Name = *req.Name
+		fields = append(fields, "name")
+	}
+	if req.Description != nil {
+		item.Description = *req.Description
+		fields = append(fields, "description")
+	}
+	if req.Status != nil {
+		item.Status = *req.Status
+		fields = append(fields, "status")
+	}
+
+	if len(fields) == 0 {
+		return nil
+	}
+
+	item.UpdatedBy = pkgCtx.GetUserID(ctx)
+	fields = append(fields, "updated_by")
+
+	res, err := r.db.NewUpdate().
+		Model(item).
+		Column(fields...).
+		Where("id = ?", req.ID).
+		Exec(ctx)
+	if err != nil {
+		return pkgErr.DatabaseError(err.Error())
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return pkgErr.DatabaseError(err.Error())
+	}
+	if affected == 0 {
+		return exceptions.NewItemNotFoundError()
+	}
+	return nil
+}
+
+func (r *repository) Delete(ctx context.Context, id string) error {
+	if id == "" {
+		return pkgErr.InvalidRequest("id is required")
+	}
+
+	// Soft delete: the deleted_at column marks the row as deleted.
+	res, err := r.db.NewDelete().
+		Model((*entity.Item)(nil)).
+		Where("id = ?", id).
+		Exec(ctx)
+	if err != nil {
+		return pkgErr.DatabaseError(err.Error())
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return pkgErr.DatabaseError(err.Error())
+	}
+	if affected == 0 {
+		return exceptions.NewItemNotFoundError()
+	}
+	return nil
+}

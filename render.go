@@ -16,6 +16,7 @@ type templateData struct {
 	ProjectName string
 	GoVersion   string
 	Preset      string
+	ModulePath  string
 }
 
 // dotfileNames maps a template base name (without the leading dot) to the

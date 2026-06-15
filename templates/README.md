@@ -9,8 +9,9 @@ when the user selects it (`--http-template <preset>`, default `base`).
 
 ```
 templates/
-  base/     # plain "hello world" Go project (default preset)
-  fiber/    # Fiber v3 HTTP server with /health + graceful shutdown
+  base/             # plain "hello world" Go project (default preset)
+  fiber/            # Fiber v3 HTTP server with /health + graceful shutdown
+  platform-service/ # full clean-architecture service (Fiber v2 + Bun/SQLite + DI)
 ```
 
 Presets are self-contained: each folder carries its own copy of every file it
@@ -28,9 +29,12 @@ typo'd placeholder fails loudly instead of silently emitting `<no value>`.
 
 Available template fields (see `templateData` in `render.go`):
 
-- `{{.ProjectName}}` — the project / module name
+- `{{.ProjectName}}` — the project / directory name
 - `{{.GoVersion}}` — the Go version (`--go`, defaults to the local toolchain)
 - `{{.Preset}}` — the selected preset name
+- `{{.ModulePath}}` — the Go module path (`--module`/`-m`, defaults to
+  `github.com/vukyn/<name>`). The `platform-service` preset uses this for its
+  module declaration and every internal import; `base`/`fiber` ignore it.
 
 ### Dotfile mapping
 

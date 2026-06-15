@@ -1,0 +1,81 @@
+# {{.ProjectName}}
+
+A clean-architecture Go service scaffolded by `gobuild` with the
+`platform-service` preset. It mirrors the pet-platform service template:
+Fiber v2, Bun ORM over SQLite, `sarulabs/di/v2` for dependency injection, and
+the shared `github.com/vukyn/kuery` helpers.
+
+Module path: `{{.ModulePath}}`.
+
+## Prerequisites
+
+- Go {{.GoVersion}} or newer
+- A C-free SQLite build is used (`modernc.org/sqlite` via `sqliteshim`), so no
+  CGO toolchain is required.
+
+## Quickstart
+
+```bash
+# 1. Install dependencies
+go mod tidy
+
+# 2. Create the SQLite database and run migrations
+make migrate-up DB=sqlite
+
+# 3. Start the server (reads .env, listens on APP_PORT)
+make run
+```
+
+The server boots Fiber on the port from `.env` (`APP_PORT`, default 8080) and
+exposes the example `item` domain under `/api/v1/items`.
+
+## Example endpoints
+
+| Method | Path                | Description          |
+| ------ | ------------------- | -------------------- |
+| POST   | /api/v1/items       | Create an item       |
+| GET    | /api/v1/items       | List items           |
+| GET    | /api/v1/items/:id   | Get one item         |
+| PATCH  | /api/v1/items/:id   | Update an item       |
+| DELETE | /api/v1/items/:id   | Soft-delete an item  |
+
+```bash
+# Create
+curl -s -X POST localhost:8080/api/v1/items \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"first","description":"hello"}'
+
+# List
+curl -s localhost:8080/api/v1/items
+```
+
+## Structure
+
+```
+cmd/main.go                 # entrypoint: app.Init + server start + graceful shutdown
+db/migrate.go               # migration runner (go run db/migrate.go sqlite up|down|reset)
+db/history/sqlite/          # migration definitions
+internal/app/               # App + Config globals, Init builds the DI container
+internal/config/            # envconfig + godotenv loader
+internal/constants/         # DI container names + route/endpoint constants
+internal/server/            # Fiber setup + route registration
+internal/middlewares/       # middleware struct + request-scoped DI injection
+internal/di/                # DI builder: config -> db -> middleware -> repos -> usecases
+internal/domains/migration/ # migration entity + models (used by the runner)
+internal/domains/item/      # example domain (entity / models / repository / usecase / handlers / exceptions)
+```
+
+Each domain follows the platform layering: `entity` (Bun models) ->
+`repository` (data access behind an `IRepository` interface) -> `usecase`
+(business logic depending on the interface) -> `handlers/http` (thin Fiber
+handlers). DTOs with `.Validate()` live in `models`, domain errors in
+`exceptions`.
+
+## Conventions
+
+Template fields rendered at scaffold time: the project name, the Go version,
+the selected preset, and the module path. After generation there are no
+remaining placeholders to fill in by hand.
+
+See `CLAUDE.md` for the architecture contract and documented extension points
+(UI, MongoDB, authentication).
