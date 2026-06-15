@@ -12,14 +12,13 @@ func NewBuilder() *di.EnhancedBuilder {
 	}
 
 	// Register in dependency order: config -> db -> middleware -> repos -> usecases.
-	builder.Add(defineConfig())
-	builder.Add(defineDB())
-	builder.Add(defineMiddleware())
-	for _, def := range defineRepository() {
-		builder.Add(def)
-	}
-	for _, def := range defineUsecase() {
-		builder.Add(def)
+	defs := []*di.Def{defineConfig(), defineDB(), defineMiddleware()}
+	defs = append(defs, defineRepository()...)
+	defs = append(defs, defineUsecase()...)
+	for _, def := range defs {
+		if err := builder.Add(def); err != nil {
+			log.New().Fatal("Failed to add definition to builder", err)
+		}
 	}
 	return builder
 }
