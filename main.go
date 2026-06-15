@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/vukyn/gobuild/version"
 
@@ -109,6 +110,17 @@ func reorderArgs(args []string) []string {
 	return reordered
 }
 
+// licenseAuthor resolves the copyright holder for the generated LICENSE file,
+// reading the local git user.name and falling back to the platform owner.
+func licenseAuthor() string {
+	if out, err := exec.Command("git", "config", "user.name").Output(); err == nil {
+		if name := strings.TrimSpace(string(out)); name != "" {
+			return name
+		}
+	}
+	return "vukyn"
+}
+
 func generateProject(projectName, goVersion, preset, modulePath string) error {
 	if projectName == "" {
 		return fmt.Errorf("project name is required")
@@ -146,6 +158,8 @@ func generateProject(projectName, goVersion, preset, modulePath string) error {
 		GoVersion:   goVersion,
 		Preset:      preset,
 		ModulePath:  modulePath,
+		Author:      licenseAuthor(),
+		Year:        fmt.Sprintf("%d", time.Now().Year()),
 	}
 	if err := renderPreset(preset, data, projectName); err != nil {
 		return err
