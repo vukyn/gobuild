@@ -1,0 +1,40 @@
+package di
+
+import (
+	"{{.ModulePath}}/internal/constants"
+	itemRepo "{{.ModulePath}}/internal/domains/item/repository"
+
+	"github.com/sarulabs/di/v2"
+	"github.com/uptrace/bun"
+	"github.com/vukyn/kuery/log"
+)
+
+func defineRepository() []*di.Def {
+	return []*di.Def{
+		defineItemRepository(),
+	}
+}
+
+func defineItemRepository() *di.Def {
+	return &di.Def{
+		Name:  constants.CONTAINER_NAME_ITEM_REPOSITORY,
+		Scope: di.Request,
+		Build: func(ctn di.Container) (any, error) {
+			db := ctn.Get(constants.CONTAINER_NAME_DB).(*bun.DB)
+			log.New().Debug("Item repository initialized")
+			return itemRepo.NewRepository(db), nil
+		},
+		Close: func(obj any) error {
+			log.New().Debug("Item repository destroyed")
+			return nil
+		},
+	}
+}
+
+func GetItemRepository(ctn di.Container) (itemRepo.IRepository, error) {
+	repository, err := ctn.SafeGet(constants.CONTAINER_NAME_ITEM_REPOSITORY)
+	if err != nil {
+		return nil, err
+	}
+	return repository.(itemRepo.IRepository), nil
+}

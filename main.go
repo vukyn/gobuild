@@ -33,8 +33,14 @@ func main() {
 			&cli.StringFlag{
 				Name:    "http-template",
 				Aliases: []string{"preset"},
-				Usage:   "Project preset (base|fiber)",
+				Usage:   "Project preset (base|fiber|platform-service)",
 				Value:   "base",
+			},
+			&cli.StringFlag{
+				Name:     "module",
+				Aliases:  []string{"m"},
+				Usage:    "Go module path (defaults to github.com/vukyn/<name>)",
+				Required: false,
 			},
 		},
 		Action: func(c *cli.Context) error {
@@ -46,7 +52,8 @@ func main() {
 			}
 			goVersion := c.String("go")
 			preset := c.String("http-template")
-			return generateProject(projectName, goVersion, preset)
+			modulePath := c.String("module")
+			return generateProject(projectName, goVersion, preset, modulePath)
 		},
 	}
 
@@ -63,6 +70,8 @@ var valueFlags = map[string]bool{
 	"--go":            true,
 	"--http-template": true,
 	"--preset":        true,
+	"-m":              true,
+	"--module":        true,
 }
 
 // reorderArgs moves flag tokens ahead of positional arguments so that
@@ -100,9 +109,14 @@ func reorderArgs(args []string) []string {
 	return reordered
 }
 
-func generateProject(projectName, goVersion, preset string) error {
+func generateProject(projectName, goVersion, preset, modulePath string) error {
 	if projectName == "" {
 		return fmt.Errorf("project name is required")
+	}
+
+	// Default the module path to the platform convention when not overridden.
+	if modulePath == "" {
+		modulePath = "github.com/vukyn/" + projectName
 	}
 
 	if goVersion == "" {
@@ -131,6 +145,7 @@ func generateProject(projectName, goVersion, preset string) error {
 		ProjectName: projectName,
 		GoVersion:   goVersion,
 		Preset:      preset,
+		ModulePath:  modulePath,
 	}
 	if err := renderPreset(preset, data, projectName); err != nil {
 		return err

@@ -1,0 +1,95 @@
+package usecase
+
+import (
+	"context"
+
+	"github.com/vukyn/testproj/internal/domains/item/entity"
+	"github.com/vukyn/testproj/internal/domains/item/models"
+	"github.com/vukyn/testproj/internal/domains/item/repository"
+)
+
+// ItemStatusActive is the default status assigned to a newly created item.
+const ItemStatusActive int32 = 1
+
+type usecase struct {
+	itemRepository repository.IRepository
+}
+
+func NewUsecase(itemRepository repository.IRepository) IUseCase {
+	return &usecase{
+		itemRepository: itemRepository,
+	}
+}
+
+func (u *usecase) Create(ctx context.Context, req models.CreateRequest) (models.ItemResponse, error) {
+	if err := req.Validate(); err != nil {
+		return models.ItemResponse{}, err
+	}
+
+	id, err := u.itemRepository.Create(ctx, entity.CreateRequest{
+		Name:        req.Name,
+		Description: req.Description,
+		Status:      ItemStatusActive,
+	})
+	if err != nil {
+		return models.ItemResponse{}, err
+	}
+
+	return u.Get(ctx, id)
+}
+
+func (u *usecase) Get(ctx context.Context, id string) (models.ItemResponse, error) {
+	item, err := u.itemRepository.GetByID(ctx, id)
+	if err != nil {
+		return models.ItemResponse{}, err
+	}
+	return toItemResponse(item), nil
+}
+
+func (u *usecase) List(ctx context.Context, req models.ListRequest) (models.ListResponse, error) {
+	items, total, err := u.itemRepository.List(ctx, req)
+	if err != nil {
+		return models.ListResponse{}, err
+	}
+
+	responses := make([]models.ItemResponse, 0, len(items))
+	for _, item := range items {
+		responses = append(responses, toItemResponse(item))
+	}
+	return models.ListResponse{
+		Items: responses,
+		Total: total,
+	}, nil
+}
+
+func (u *usecase) Update(ctx context.Context, id string, req models.UpdateRequest) (models.ItemResponse, error) {
+	if err := req.Validate(); err != nil {
+		return models.ItemResponse{}, err
+	}
+
+	if err := u.itemRepository.Update(ctx, entity.UpdateRequest{
+		ID:          id,
+		Name:        req.Name,
+		Description: req.Description,
+		Status:      req.Status,
+	}); err != nil {
+		return models.ItemResponse{}, err
+	}
+
+	return u.Get(ctx, id)
+}
+
+func (u *usecase) Delete(ctx context.Context, id string) error {
+	return u.itemRepository.Delete(ctx, id)
+}
+
+func toItemResponse(item entity.Item) models.ItemResponse {
+	return models.ItemResponse{
+		ID:          item.ID,
+		Name:        item.Name,
+		Description: item.Description,
+		Status:      item.Status,
+		CreatedAt:   item.CreatedAt,
+		UpdatedAt:   item.UpdatedAt,
+	}
+}

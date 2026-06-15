@@ -1,0 +1,30 @@
+package di
+
+import (
+	"{{.ModulePath}}/internal/config"
+	"{{.ModulePath}}/internal/constants"
+	"{{.ModulePath}}/internal/middlewares"
+
+	"github.com/sarulabs/di/v2"
+	"github.com/vukyn/kuery/log"
+)
+
+func defineMiddleware() *di.Def {
+	return &di.Def{
+		Name:  constants.CONTAINER_NAME_MIDDLEWARE,
+		Scope: di.App,
+		Build: func(ctn di.Container) (any, error) {
+			cfg := ctn.Get(constants.CONTAINER_NAME_CONFIG).(*config.Config)
+			log.New().Info("Middleware initialized")
+			return middlewares.NewMiddleware(cfg), nil
+		},
+		Close: func(obj any) error {
+			log.New().Debug("Middleware destroyed")
+			return nil
+		},
+	}
+}
+
+func GetMiddleware(ctn di.Container) *middlewares.Middleware {
+	return ctn.Get(constants.CONTAINER_NAME_MIDDLEWARE).(*middlewares.Middleware)
+}

@@ -1,0 +1,16 @@
+package handlers
+
+import (
+	"github.com/vukyn/testproj/internal/constants"
+
+	"github.com/gofiber/fiber/v2"
+)
+
+func SetupItemRoutes(router fiber.Router) {
+	rItem := router.Group(constants.ITEM_GROUP_NAME)
+	rItem.Post(constants.ITEM_ENDPOINT_ROOT, CreateItem)
+	rItem.Get(constants.ITEM_ENDPOINT_ROOT, ListItems)
+	rItem.Get(constants.ITEM_ENDPOINT_DETAIL, GetItem)
+	rItem.Patch(constants.ITEM_ENDPOINT_DETAIL, UpdateItem)
+	rItem.Delete(constants.ITEM_ENDPOINT_DETAIL, DeleteItem)
+}
