@@ -13,6 +13,15 @@ todo
 # Knowledge graph cache
 .code-review-graph/
 
+# Embedded UI build output — produced by `make build-web` into internal/web/dist.
+# The bundle is a build artifact (not committed); the .gitkeep keeps the embed
+# directory (and the go:embed pattern) valid on a fresh checkout.
+internal/web/dist/*
+!internal/web/dist/.gitkeep
+
+# Transient Vite build output (moved into internal/web/dist by `make build-web`)
+ui/dist/
+
 # Node
 node_modules/
 

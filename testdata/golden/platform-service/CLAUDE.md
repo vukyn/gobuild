@@ -18,10 +18,12 @@ make build                  # build binary to bin/
 make migrate-up DB=sqlite   # run db/migrate.go sqlite up
 make migrate-down DB=sqlite # rollback last migration
 make migrate-reset DB=sqlite# rollback all migrations
+make web                    # Vite dev server in ui/
+make build-web              # build ui/ -> internal/web/dist (embedded by Go)
 
 go build ./...              # verify
 go vet ./...
-go test ./...              # no _test.go ship by default — add your own
+go test ./...              # web embed has a test; add your own per domain
 ```
 
 Config is loaded from `.env` at the repo root via godotenv + envconfig.
@@ -71,6 +73,21 @@ SQLite at `db/app.db` (Bun `sqlitedialect` + `sqliteshim` driver, no CGO).
 Migrations are plain Go funcs in `db/history/sqlite/sqlite.go`, run by
 `db/migrate.go`. Soft delete via `deleted_at`.
 
+### Embedded UI (`internal/web/`)
+
+The React UI in `ui/` is compiled by `make build-web` into `internal/web/dist`
+and embedded into the binary at compile time via `//go:embed all:dist`
+(`internal/web/web.go`), so the server is a single self-contained artifact.
+`internal/server/server.go` serves it: the Fiber `html` engine renders
+`index.html` (with `VITE_API_BASE_URL` injected), `/assets` is served from the
+embedded `assets/` subtree, root files like `favicon.svg` get an explicit route
+before the SPA catch-all, and `/*` renders the SPA. A committed
+`internal/web/dist/.gitkeep` keeps the embed pattern valid before any build —
+`go build` works on a fresh checkout, the real bundle fills in after
+`make build-web`. The UI uses route-level code splitting (`React.lazy` +
+`Suspense` in `ui/src/App.tsx`) with vendor `manualChunks` in
+`ui/vite.config.ts`.
+
 ## Conventions
 
 - Interfaces prefixed `I` (`IRepository`, `IUseCase`); files `snake_case.go`.
@@ -85,9 +102,15 @@ Migrations are plain Go funcs in `db/history/sqlite/sqlite.go`, run by
 
 - **Tests** — the skeleton ships no `_test.go`. Add table-driven tests per
   domain (usecase against repository fakes; handlers via Fiber `app.Test`).
-- **UI** — no frontend is generated. To add one, follow the platform pattern:
-  a Vite/React app under `ui/`, built and embedded into the Go binary served by
-  Fiber.
+- **UI** — a complete, minimal Vite + React 19 + TypeScript + Chakra UI v3
+  project ships under `ui/` (`package.json`, `index.html`, `tsconfig*`,
+  `vite.config.ts`, `eslint.config.js`, `src/main.tsx` with `ChakraProvider`,
+  a single `Home` route via `React.lazy` + `Suspense`, vendor `manualChunks`,
+  and `public/favicon.svg`). It is buildable as-is: `make build-web` runs
+  `npm install && npm run build` and stages `ui/dist` into `internal/web/dist`,
+  which is embedded into the binary (see Architecture). Build the UI before
+  `go build` to ship a real bundle. Grow it by adding pages under
+  `ui/src/pages/` and registering lazy routes in `ui/src/App.tsx`.
 - **MongoDB** — this preset is SQLite-only. A Mongo-backed variant would swap
   `internal/di/di_db.go` and the repository impls for the Mongo driver and drop
   the `db/` migration runner.
