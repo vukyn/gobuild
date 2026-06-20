@@ -14,3 +14,17 @@ migrate-down:
 
 migrate-reset:
 	go run db/migrate.go $(DB) reset
+
+# Vite dev server for the UI (proxy/API base from ui/.env).
+web:
+	cd ui && npm run dev
+
+# Build the UI and stage it for go:embed: the bundle goes to internal/web/dist,
+# and a .gitkeep keeps the embed dir (and the //go:embed all:dist pattern) valid
+# on a fresh checkout before any build. `go build` reads internal/web/dist at
+# compile time, so this MUST run before building the server with a real UI.
+build-web:
+	cd ui && npm install && npm run build
+	rm -rf ./internal/web/dist
+	mv ./ui/dist ./internal/web/dist
+	touch ./internal/web/dist/.gitkeep

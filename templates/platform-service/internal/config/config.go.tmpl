@@ -20,6 +20,11 @@ type Config struct {
 		StepDelay             int  `envconfig:"GRACEFUL_STEP_DELAY"`
 		ServerShutdownTimeout int  `envconfig:"GRACEFUL_SERVER_SHUTDOWN_TIMEOUT"`
 	}
+	// Vite carries values injected into the embedded SPA's index.html at render
+	// time (e.g. the API base URL the browser bundle should call).
+	Vite struct {
+		BaseURL string `envconfig:"VITE_API_BASE_URL"`
+	}
 }
 
 func LoadConfig(envFiles ...string) (*Config, error) {
