@@ -28,9 +28,10 @@ type Config struct {
 }
 
 func LoadConfig(envFiles ...string) (*Config, error) {
-	if err := godotenv.Load(envFiles...); err != nil {
-		return nil, err
-	}
+	// .env is optional — absent in deploy (fly.io etc.) where config is supplied
+	// via real environment variables. A missing file is not fatal; envconfig reads
+	// the OS environment below regardless.
+	_ = godotenv.Load(envFiles...)
 
 	cfg := new(Config)
 	if err := envconfig.Process("", cfg); err != nil {
