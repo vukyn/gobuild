@@ -19,7 +19,7 @@ var update = flag.Bool("update", false, "regenerate golden files")
 var fixedData = templateData{ProjectName: "testproj", GoVersion: "1.24", ModulePath: "github.com/vukyn/testproj", Author: "vukyn", Year: "2026"}
 
 // presets enumerates every preset that must have golden coverage.
-var presets = []string{"base", "fiber", "platform-service"}
+var presets = []string{"base", "fiber", "platform-service", "iot"}
 
 func TestRenderPresetGolden(t *testing.T) {
 	for _, preset := range presets {

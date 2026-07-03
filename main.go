@@ -34,7 +34,7 @@ func main() {
 			&cli.StringFlag{
 				Name:    "http-template",
 				Aliases: []string{"preset"},
-				Usage:   "Project preset (base|fiber|platform-service)",
+				Usage:   "Project preset (base|fiber|platform-service|iot)",
 				Value:   "base",
 			},
 			&cli.StringFlag{
