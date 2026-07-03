@@ -121,6 +121,13 @@ func licenseAuthor() string {
 	return "vukyn"
 }
 
+// hasGoMod reports whether the rendered project contains a go.mod (i.e. it is a
+// Go preset). Non-Go presets (e.g. iot) skip the go mod tidy step.
+func hasGoMod(projectDir string) bool {
+	_, err := os.Stat(filepath.Join(projectDir, "go.mod"))
+	return err == nil
+}
+
 func generateProject(projectName, goVersion, preset, modulePath string) error {
 	if projectName == "" {
 		return fmt.Errorf("project name is required")
@@ -173,15 +180,19 @@ func generateProject(projectName, goVersion, preset, modulePath string) error {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	// Run go mod tidy in the project directory
+	// Run go mod tidy only for Go presets (those that rendered a go.mod).
 	projectDir := filepath.Join(currentDir, projectName)
-	goModTidyCmd := exec.Command("go", "mod", "tidy")
-	goModTidyCmd.Dir = projectDir
-	goModTidyCmd.Stdout = os.Stdout
-	goModTidyCmd.Stderr = os.Stderr
-	fmt.Println("Running go mod tidy...")
-	if err := goModTidyCmd.Run(); err != nil {
-		fmt.Printf("Warning: Failed to run go mod tidy: %v\n", err)
+	if hasGoMod(projectDir) {
+		goModTidyCmd := exec.Command("go", "mod", "tidy")
+		goModTidyCmd.Dir = projectDir
+		goModTidyCmd.Stdout = os.Stdout
+		goModTidyCmd.Stderr = os.Stderr
+		fmt.Println("Running go mod tidy...")
+		if err := goModTidyCmd.Run(); err != nil {
+			fmt.Printf("Warning: Failed to run go mod tidy: %v\n", err)
+		}
+	} else {
+		fmt.Println("No go.mod (non-Go preset) — skipping go mod tidy")
 	}
 
 	// Initialize git repository

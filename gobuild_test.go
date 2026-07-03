@@ -151,6 +151,19 @@ func TestRenderPresetUnknown(t *testing.T) {
 	}
 }
 
+func TestHasGoMod(t *testing.T) {
+	dir := t.TempDir()
+	if hasGoMod(dir) {
+		t.Fatal("hasGoMod(empty dir) = true, want false")
+	}
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module x\n"), 0644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+	if !hasGoMod(dir) {
+		t.Fatal("hasGoMod(dir with go.mod) = false, want true")
+	}
+}
+
 func TestRenderMissingKeyErrors(t *testing.T) {
 	// renderPreset configures text/template with Option("missingkey=error").
 	// This test mirrors that configuration to lock in the behavior: a template
