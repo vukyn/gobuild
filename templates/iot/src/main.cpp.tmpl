@@ -1,0 +1,19 @@
+// {{.ProjectName}} — ESP32-S3 firmware scaffold (gobuild iot preset)
+// Consumes the shared kuino library. Fill in your device logic in loop().
+#include <Arduino.h>
+#include <kuino/wifi.h>
+#include "config.h"
+
+void setup() {
+  Serial.begin(115200);
+  kuino::wifi::connect(WIFI_SSID, WIFI_PASSWORD);
+  Serial.println("{{.ProjectName}} online");
+}
+
+void loop() {
+  // Add your poll/render logic here. Example building blocks from kuino:
+  //   #include <kuino/httpjson.h>  -> kuino::httpjson::getJson(url, doc)
+  //   #include <kuino/display.h>   -> kuino::display::drawHeader(oled, ...)
+  //   #include <kuino/button.h>    -> kuino::button::pressed(pin, ...)
+  delay(1000);
+}

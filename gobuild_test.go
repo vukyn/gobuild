@@ -19,7 +19,7 @@ var update = flag.Bool("update", false, "regenerate golden files")
 var fixedData = templateData{ProjectName: "testproj", GoVersion: "1.24", ModulePath: "github.com/vukyn/testproj", Author: "vukyn", Year: "2026"}
 
 // presets enumerates every preset that must have golden coverage.
-var presets = []string{"base", "fiber", "platform-service"}
+var presets = []string{"base", "fiber", "platform-service", "iot"}
 
 func TestRenderPresetGolden(t *testing.T) {
 	for _, preset := range presets {
@@ -148,6 +148,19 @@ func TestRenderPresetUnknown(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), `unknown preset "nope"`) {
 		t.Errorf("error %q does not mention unknown preset", err.Error())
+	}
+}
+
+func TestHasGoMod(t *testing.T) {
+	dir := t.TempDir()
+	if hasGoMod(dir) {
+		t.Fatal("hasGoMod(empty dir) = true, want false")
+	}
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module x\n"), 0644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+	if !hasGoMod(dir) {
+		t.Fatal("hasGoMod(dir with go.mod) = false, want true")
 	}
 }
 

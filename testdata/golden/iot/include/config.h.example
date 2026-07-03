@@ -1,0 +1,15 @@
+#pragma once
+// Copy to config.h and fill in. config.h is gitignored (keeps WiFi creds out of repo).
+
+#define WIFI_SSID       "your-wifi"
+#define WIFI_PASSWORD   "your-pass"
+
+// Backend API base (no trailing slash). Replace with your service host.
+#define API_BASE        "https://example.fly.dev"
+
+// Poll interval (ms)
+#define POLL_INTERVAL_MS 10000
+
+// OLED I2C pins (ESP32-S3). Match your wiring: SDA/SCL. Remove if headless.
+#define OLED_SDA 8
+#define OLED_SCL 9
