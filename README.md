@@ -43,7 +43,20 @@ gobuild hello-world
 
 # With custom go version
 gobuild hello-world --go 1.24.2
+
+# With a preset
+gobuild my-service --preset platform-service
+gobuild my-device --preset iot
 ```
+
+## Presets
+
+Select a preset with `--http-template`/`--preset` (default `base`):
+
+-   **base** — plain "hello world" Go project (`main.go`, `go.mod`, `.env`, `Makefile`, `README.md`, `.gitignore`, `todo`).
+-   **fiber** — Fiber v3 HTTP server with a `/health` endpoint and graceful shutdown.
+-   **platform-service** — full clean-architecture Go service (Fiber v2, Bun/SQLite, sarulabs/di, kuery) with an example `item` domain and DI wiring.
+-   **iot** — minimal ESP32-S3 firmware skeleton (C++/PlatformIO, **non-Go**). Renders `platformio.ini` (single esp32-s3 env pinning the shared `kuino` lib), a thin `src/main.cpp` wired to `kuino::wifi`, `include/config.h.example`, `.gitignore`, `README.md`, `CLAUDE.md`. `go mod tidy` is skipped (no `go.mod`).
 
 ## Generated Project Structure
 

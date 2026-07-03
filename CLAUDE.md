@@ -14,11 +14,15 @@ Presets:
 
   Extension points (intentionally out of scope for the generated skeleton, documented in its `CLAUDE.md`): no `_test.go` files, no UI (`--ui` is a future enhancement — add a Vite/React `ui/` embedded into the Go binary), **SQLite-only** (a MongoDB variant would swap `di_db.go` + repo impls and drop the migration runner), and **no auth** (wire `kuery/auth` middleware in `internal/middlewares` + `internal/server` to protect routes).
 
+- **iot** — minimal ESP32-S3 firmware skeleton (C++/PlatformIO, **non-Go**). Renders `platformio.ini` (single esp32-s3 env pinning the shared `kuino` lib), a thin `src/main.cpp` wired to `kuino::wifi`, `include/config.h.example`, `.gitignore`, `README.md`, `CLAUDE.md`. `go mod tidy` is skipped (no `go.mod`).
+
+gobuild now emits **non-Go** presets too; `go mod tidy` runs only when a `go.mod` was rendered (`hasGoMod`), while `git init` always runs.
+
 ### Flags
 
 - `--name`/`-n` — project name (or positional arg).
 - `--go` — Go version (defaults to the local toolchain).
-- `--http-template`/`--preset` — preset (`base|fiber|platform-service`, default `base`).
+- `--http-template`/`--preset` — preset (`base|fiber|platform-service|iot`, default `base`).
 - `--module`/`-m` — Go module path (defaults to `github.com/vukyn/<name>`). Threaded into `templateData.ModulePath`; the `platform-service` preset uses it for the `go.mod` module line and all internal imports. `base`/`fiber` ignore it.
 
 Flags can appear before or after the positional name (`reorderArgs` in `main.go` normalizes ordering, since urfave/cli v2 otherwise stops flag parsing at the first positional arg). `valueFlags` lists every flag that consumes the following token so reordering skips flag values.
