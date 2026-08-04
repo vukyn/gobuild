@@ -12,7 +12,6 @@ import (
 
 func CreateItem(c *fiber.Ctx) error {
 	ctn := pkgCtx.GetDiContainerRequestFromFiberCtx(c)
-	defer ctn.Delete()
 
 	usecase, err := idi.GetItemUsecase(ctn)
 	if err != nil {
@@ -34,7 +33,6 @@ func CreateItem(c *fiber.Ctx) error {
 
 func ListItems(c *fiber.Ctx) error {
 	ctn := pkgCtx.GetDiContainerRequestFromFiberCtx(c)
-	defer ctn.Delete()
 
 	usecase, err := idi.GetItemUsecase(ctn)
 	if err != nil {
@@ -56,7 +54,6 @@ func ListItems(c *fiber.Ctx) error {
 
 func GetItem(c *fiber.Ctx) error {
 	ctn := pkgCtx.GetDiContainerRequestFromFiberCtx(c)
-	defer ctn.Delete()
 
 	usecase, err := idi.GetItemUsecase(ctn)
 	if err != nil {
@@ -73,7 +70,6 @@ func GetItem(c *fiber.Ctx) error {
 
 func UpdateItem(c *fiber.Ctx) error {
 	ctn := pkgCtx.GetDiContainerRequestFromFiberCtx(c)
-	defer ctn.Delete()
 
 	usecase, err := idi.GetItemUsecase(ctn)
 	if err != nil {
@@ -95,7 +91,6 @@ func UpdateItem(c *fiber.Ctx) error {
 
 func DeleteItem(c *fiber.Ctx) error {
 	ctn := pkgCtx.GetDiContainerRequestFromFiberCtx(c)
-	defer ctn.Delete()
 
 	usecase, err := idi.GetItemUsecase(ctn)
 	if err != nil {
