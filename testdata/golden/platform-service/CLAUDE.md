@@ -53,9 +53,18 @@ Rules (non-negotiable, mirror the platform):
 - `usecase/` depends on the repository INTERFACE, never the concrete impl. IDs
   for new rows use `kuery/cryp.ULID()`.
 - `handlers/http/` are thin: resolve the request-scoped container with
-  `pkgCtx.GetDiContainerRequestFromFiberCtx(c)` then `defer ctn.Delete()`, build
-  a `context.Context` with `pkgCtx.NewContextFromFiberCtx(c)`, call the usecase,
-  and funnel responses through `pkgHttp.OK` / `pkgHttp.Err`.
+  `pkgCtx.GetDiContainerRequestFromFiberCtx(c)`, build a `context.Context` with
+  `pkgCtx.NewContextFromFiberCtx(c)`, call the usecase, and funnel responses
+  through `pkgHttp.OK` / `pkgHttp.Err`.
+  ⚠️ **A handler must NOT call `ctn.Delete()`** — it only borrows the container;
+  `DiContainerMiddleware` created it and releases it (see Dependency injection).
+  This is the reverse of the older platform rule, which had every handler carry a
+  `defer ctn.Delete()`. That rule leaked by construction: the middleware is
+  global, so a request that never reaches a handler (401, 403, 429, `/assets`,
+  `/favicon.svg`, a 404, every SPA render) had nobody to run the defer, and
+  sarulabs/di retains such a sub-container for the life of the process. A leftover
+  defer is not a visible failure — a second `Delete` returns nil — it just runs
+  every registered `Close` twice.
 - Only handlers/middleware log.
 
 ### Dependency injection (`internal/di/`)
@@ -64,8 +73,42 @@ Rules (non-negotiable, mirror the platform):
 `config -> db -> middleware -> repositories -> usecases`. DI names are the
 constants in `internal/constants/di.go` (`config`, `db`, `middleware`,
 `item.repository`, `item.usecase`). Singletons are `di.App`-scoped; repos and
-usecases are `di.Request`-scoped. `DiContainerMiddleware` creates a
-request-scoped sub-container per request and stores it in Fiber locals.
+usecases are `di.Request`-scoped.
+
+⚠️ **`DiContainerMiddleware` owns the request container's whole lifetime.** It
+creates the `di.Request` sub-container, stores it in Fiber locals, and releases it
+with its own `defer` — so the release runs on every path: a handled 200, a 401 from
+an auth middleware, a 403 from a role check, a 429 from a rate limiter, `/assets`,
+`/favicon.svg`, a 404, every SPA catch-all render, a handler that returns an error,
+and a panic recovered by `pkgRecover.NewFiberRecover()` (the recover middleware is
+mounted INSIDE this one, and a `defer` runs during unwinding anyway).
+
+Whoever creates a sub-container releases it. Handlers only *borrow* one, so they must
+not call `Delete`; the only legitimate `Delete` sites are the ones that opened their
+own sub-container with no request around it (e.g. a startup bootstrap task) plus the
+app container's own teardown in `cmd/main.go`. The rule used to be the opposite (a
+`defer ctn.Delete()` in every handler) and it leaked in production: this middleware
+is mounted globally, ahead of the routes, so it had already built a sub-container by
+the time anything decided the request would not reach a handler — and `sarulabs/di`
+keeps every sub-container in its parent's `children` map until deleted, so each of
+those was retained for the life of the **process**. A handler-owned lifetime cannot
+cover a request that never reaches a handler. The leaking paths were also the
+cheapest, unauthenticated ones, so the leak was free to trigger.
+
+It calls **`DeleteWithSubContainers`**, not `Delete`: `Delete` is conditional — with
+any child present it merely sets `deleteIfNoChild` and returns nil, leaving the
+container in the parent's `children` map, i.e. the leak. A single owner needs an
+unconditional release. Its documented hazard (tearing down a sub-container another
+goroutine still uses) does not apply while nothing touches the container after its
+handler returns — no `SendStream`/`SetBodyStreamWriter`, and no goroutine that
+resolves from it. That is a **precondition of this design**: if you ever hand a
+request-scoped dependency to a goroutine that outlives the request, this release is a
+use-after-free and the ownership has to be rethought, not worked around.
+
+When you add tests, pin this: assert the app container retains **zero** children
+after a request on each short-circuit path, and that a registered `Close` runs
+**exactly once** per request (so a re-added handler defer fails the suite instead of
+silently double-closing).
 
 ### Database
 
