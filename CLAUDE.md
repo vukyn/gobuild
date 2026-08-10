@@ -68,3 +68,23 @@ The Makefile sources `.env` (currently empty placeholders for `PRJ`/`VERSION`).
 - File permissions are deliberate for scaffolder output: `0755` dirs / `0644` files, annotated with `// #nosec` (G301/G306) — generated projects must be user-readable and contain no secrets. Keep those annotations when touching the write paths.
 - **Golden fixtures + .gitignore**: `testdata/golden/<preset>/` includes fixtures named `.env`/`.gitignore`/`todo`. The per-preset golden `.gitignore` self-ignores its sibling `.env`/`todo`, so a plain `git add` skips four files; the first commit of new/changed goldens needs `git add -f testdata/golden`.
 - Bump `version/version.go` when cutting a release; tag via `make tag`.
+
+## ⚠️ Preset `platform-service` propagates a root-file/catch-all trap
+
+`templates/platform-service/internal/server/server.go.tmpl` routes exactly one root file
+(`/favicon.svg`) and then `app.Get("/*", renderHomePage)`. A generated service is CORRECT
+as generated — the preset ships only that one file and it is routed — but the shape breaks
+the moment anyone adds a second root-level asset: the catch-all answers it with index.html
+at **status 200**, so nothing 404s and logs look healthy.
+
+That is exactly how gardener (scaffolded from this preset) shipped a manifest, icons and
+`sw.js` that all returned HTML — Add-to-Home-Screen had no name or icon, iOS used a
+screenshot of the page, and `registerSW()` died on the MIME type so the service worker
+never installed and offline was dead in production. Fixed there in PR #106; rainy fixed
+the same thing its own way earlier.
+
+Audited 2026-08-10, **template NOT yet changed**. The plan, the exact handler to port, the
+`.webmanifest` Content-Type trap, the one-segment limitation, and the golden-file
+regeneration step are in `docs/pwa-root-file-audit.md`. ⚠️ Changing the template means
+`go test -update` — the current golden
+(`testdata/golden/platform-service/internal/server/server.go:104-108`) encodes the defect.
