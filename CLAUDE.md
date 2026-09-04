@@ -2,6 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## The memory layer
+
+@MEMORY.md
+
+⚠️ **That import is the point of the file, not decoration.** `MEMORY.md` and
+`memory/` are the distilled layer — one hard-won fact per file, with why it
+matters — and they live **in the repository** because a machine's own Claude
+memory directory is workspace-scoped and machine-local: this repo opened on
+another machine, or outside the workspace the notes were written in, arrived with
+none of them.
+
+It is a **distillation, not the record.** This file and the repository's other
+documents stay the authority; where a note disagrees with the file that owns the
+subject, the repository wins and the note is what to fix. `MEMORY.md` carries the
+rules the notes are written under — one line per note in the index, one fact per
+file, say why rather than only what, and delete a wrong note rather than adding a
+second one beside it.
+
 ## Purpose
 
 `gobuild` is a small CLI (module `github.com/vukyn/gobuild`) that scaffolds new Go projects from templates. Given a project name (positional arg or `--name`/`-n`), an optional `--go` version, an optional `--module`/`-m` Go module path, and a `--http-template`/`--preset` (default `base`), it creates a directory from the selected preset's template tree, then runs `go mod tidy` and `git init` inside it.
