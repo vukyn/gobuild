@@ -149,7 +149,7 @@ func generateProject(projectName, goVersion, preset, modulePath string) error {
 				}
 			}
 			if goVersion == "" {
-				goVersion = "1.24"
+				goVersion = "1.27"
 			}
 		}
 	}
