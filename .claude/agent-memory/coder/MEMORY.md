@@ -11,3 +11,8 @@
 ## Multi-file mechanical sweeps
 - [Verify sweeps with numstat, not grep](feedback_verify_sweep_counts_not_greps.md) — rtk hook breaks `grep -lZ | xargs -0`; glob loops + `git diff --numstat`
 - [No git checkout during an uncommitted sweep](feedback_uncommitted_sweep_no_git_checkout.md) — it restores the lines the sweep removed; `cp` aside instead
+
+## Generator + pin hygiene (2026-09-13)
+- [Rejection test masked by an earlier check](rejection-test-masked-by-earlier-check.md) — the poisoned name tripped module.CheckPath first; deleting the name regex left the test GREEN in 4/6 cases
+- [Pruned-tag pin rot](pruned-tag-pin-rot.md) — kuery/kuino keep 5 tags; proxy.golang.org 404s pruned versions (platform CLAUDE.md claims otherwise)
+- [Makefile include of a gitignored .env](makefile-include-gitignored-env.md) — bare `include ./.env` kills EVERY target on a fresh clone; sgo still has it
