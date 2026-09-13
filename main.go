@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"os/exec"
@@ -15,7 +17,16 @@ import (
 )
 
 func main() {
-	app := &cli.App{
+	if err := newApp().Run(reorderArgs(os.Args)); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// newApp builds the CLI definition. It is a function rather than an inline
+// literal so the flag set (notably the --go default, which must stay empty for
+// toolchain detection to run) is reachable from tests.
+func newApp() *cli.App {
+	return &cli.App{
 		Name:    "gobuild",
 		Usage:   "Generate a new Golang project template",
 		Version: version.Current,
@@ -28,8 +39,11 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:  "go",
-				Usage: "Go version",
-				Value: "1.24",
+				Usage: "Go version (defaults to the local toolchain)",
+				// Deliberately empty: a static default makes the
+				// auto-detect branch in generateProject unreachable and
+				// goes stale silently at every toolchain bump.
+				Value: "",
 			},
 			&cli.StringFlag{
 				Name:    "http-template",
@@ -43,6 +57,11 @@ func main() {
 				Usage:    "Go module path (defaults to github.com/vukyn/<name>)",
 				Required: false,
 			},
+			&cli.BoolFlag{
+				Name:    "force",
+				Aliases: []string{"f"},
+				Usage:   "Render into an existing non-empty directory, overwriting files (an existing .env is still preserved)",
+			},
 		},
 		Action: func(c *cli.Context) error {
 			var projectName string
@@ -54,12 +73,9 @@ func main() {
 			goVersion := c.String("go")
 			preset := c.String("http-template")
 			modulePath := c.String("module")
-			return generateProject(projectName, goVersion, preset, modulePath)
+			force := c.Bool("force")
+			return generateProject(projectName, goVersion, preset, modulePath, force)
 		},
-	}
-
-	if err := app.Run(reorderArgs(os.Args)); err != nil {
-		log.Fatal(err)
 	}
 }
 
@@ -128,34 +144,78 @@ func hasGoMod(projectDir string) bool {
 	return err == nil
 }
 
-func generateProject(projectName, goVersion, preset, modulePath string) error {
-	if projectName == "" {
-		return fmt.Errorf("project name is required")
+// detectGoVersion reads the local toolchain version for the generated go.mod
+// `go` directive, falling back to a known-good value when the toolchain cannot
+// be queried or its output cannot be parsed.
+func detectGoVersion() string {
+	if out, err := exec.Command("go", "version").Output(); err == nil {
+		for _, part := range strings.Fields(string(out)) {
+			if strings.HasPrefix(part, "go1.") {
+				return strings.TrimPrefix(part, "go")
+			}
+		}
+	}
+	return goVersionFallback
+}
+
+// goVersionFallback is used when the local toolchain cannot be queried.
+const goVersionFallback = "1.27"
+
+// ensureTargetDir reports whether the destination is safe to render into.
+// Scaffolding overwrites files by name, so an existing project directory would
+// silently lose work; only an explicit --force allows it.
+func ensureTargetDir(projectDir string, force bool) error {
+	entries, err := os.ReadDir(projectDir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to inspect %s: %w", projectDir, err)
+	}
+	if len(entries) == 0 || force {
+		return nil
+	}
+	return fmt.Errorf("refusing to render into non-empty directory %s: pass --force to overwrite its contents", projectDir)
+}
+
+func generateProject(projectName, goVersion, preset, modulePath string, force bool) error {
+	// Validate every caller-supplied value before anything is rendered.
+	// text/template does no escaping, so these values reach generated go.mod
+	// and package.json files verbatim.
+	if err := validateProjectName(projectName); err != nil {
+		return err
 	}
 
 	// Default the module path to the platform convention when not overridden.
 	if modulePath == "" {
 		modulePath = "github.com/vukyn/" + projectName
 	}
-
-	if goVersion == "" {
-		// Get current Go version
-		if out, err := exec.Command("go", "version").Output(); err == nil {
-			parts := strings.Fields(string(out))
-			for _, part := range parts {
-				if strings.HasPrefix(part, "go1.") {
-					goVersion = strings.TrimPrefix(part, "go")
-					break
-				}
-			}
-			if goVersion == "" {
-				goVersion = "1.27"
-			}
-		}
+	if err := validateModulePath(modulePath); err != nil {
+		return err
 	}
 
-	// Create project directory
-	if err := os.MkdirAll(projectName, 0755); err != nil { // #nosec G301 -- scaffolded project dir must be user-browsable
+	if goVersion == "" {
+		goVersion = detectGoVersion()
+	}
+	if err := validateGoVersion(goVersion); err != nil {
+		return err
+	}
+
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	// projectDir is resolved ONCE and used for the render and both post-setup
+	// steps. Deriving it twice previously let the render and the `go mod
+	// tidy`/`git init` steps disagree about where the project lived.
+	projectDir := filepath.Join(currentDir, projectName)
+
+	if err := ensureTargetDir(projectDir, force); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(projectDir, 0755); err != nil { // #nosec G301 -- scaffolded project dir must be user-browsable
 		return fmt.Errorf("failed to create project directory: %w", err)
 	}
 
@@ -168,20 +228,15 @@ func generateProject(projectName, goVersion, preset, modulePath string) error {
 		Author:      licenseAuthor(),
 		Year:        fmt.Sprintf("%d", time.Now().Year()),
 	}
-	if err := renderPreset(preset, data, projectName); err != nil {
+	if err := renderPreset(preset, data, projectDir); err != nil {
 		return err
 	}
 
 	fmt.Printf("Successfully created %s project template!\n", projectName)
 
-	// Change to project directory for subsequent commands
-	currentDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
+	var postSetupFailures []string
 
 	// Run go mod tidy only for Go presets (those that rendered a go.mod).
-	projectDir := filepath.Join(currentDir, projectName)
 	if hasGoMod(projectDir) {
 		goModTidyCmd := exec.Command("go", "mod", "tidy")
 		goModTidyCmd.Dir = projectDir
@@ -189,7 +244,7 @@ func generateProject(projectName, goVersion, preset, modulePath string) error {
 		goModTidyCmd.Stderr = os.Stderr
 		fmt.Println("Running go mod tidy...")
 		if err := goModTidyCmd.Run(); err != nil {
-			fmt.Printf("Warning: Failed to run go mod tidy: %v\n", err)
+			postSetupFailures = append(postSetupFailures, fmt.Sprintf("go mod tidy: %v", err))
 		}
 	} else {
 		fmt.Println("No go.mod (non-Go preset) — skipping go mod tidy")
@@ -202,7 +257,14 @@ func generateProject(projectName, goVersion, preset, modulePath string) error {
 	gitInitCmd.Stderr = os.Stderr
 	fmt.Println("Initializing git repository...")
 	if err := gitInitCmd.Run(); err != nil {
-		fmt.Printf("Warning: Failed to initialize git repository: %v\n", err)
+		postSetupFailures = append(postSetupFailures, fmt.Sprintf("git init: %v", err))
+	}
+
+	// A failed post-setup step leaves a half-configured project, so it must not
+	// be reported as success — previously these were warnings and the command
+	// still printed "complete" and exited 0.
+	if len(postSetupFailures) > 0 {
+		return fmt.Errorf("project rendered at %s but post-setup failed: %s", projectDir, strings.Join(postSetupFailures, "; "))
 	}
 
 	fmt.Println("Project setup complete, you are ready to go!")

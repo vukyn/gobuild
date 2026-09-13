@@ -25,8 +25,31 @@ type templateData struct {
 // dotted file name it should be written as. Templates live on disk without a
 // leading dot so they are not hidden in the repository.
 var dotfileNames = map[string]string{
-	"env":       ".env",
+	"env":       envFileName,
 	"gitignore": ".gitignore",
+}
+
+const (
+	// envFileName is the generated secrets file. It is singled out in the write
+	// path: it receives live credentials as soon as a scaffolded project is
+	// wired up, so it is written owner-only and an existing one is never
+	// replaced.
+	envFileName = ".env"
+
+	// envFileMode keeps the generated .env unreadable by other local accounts.
+	envFileMode = 0600
+
+	// generatedFileMode is the conventional mode for every other generated
+	// file — ordinary source that must stay user-readable.
+	generatedFileMode = 0644
+)
+
+// fileMode picks the permission bits for a rendered file by its final name.
+func fileMode(dest string) os.FileMode {
+	if filepath.Base(dest) == envFileName {
+		return envFileMode
+	}
+	return generatedFileMode
 }
 
 // outputName converts a template-relative path into the final on-disk name:
@@ -79,6 +102,18 @@ func renderPreset(preset string, data templateData, destDir string) error {
 			return nil
 		}
 
+		dest := filepath.Join(destDir, outputName(rel))
+
+		// An existing .env is never replaced, not even under --force: the
+		// template value is boilerplate while the file on disk may already hold
+		// real credentials.
+		if filepath.Base(dest) == envFileName {
+			if _, statErr := os.Stat(dest); statErr == nil {
+				fmt.Printf("Preserving existing %s (not overwritten)\n", dest)
+				return nil
+			}
+		}
+
 		contents, err := fs.ReadFile(templatesFS, path)
 		if err != nil {
 			return fmt.Errorf("failed to read template %s: %w", path, err)
@@ -94,11 +129,13 @@ func renderPreset(preset string, data templateData, destDir string) error {
 			return fmt.Errorf("failed to render template %s: %w", path, err)
 		}
 
-		dest := filepath.Join(destDir, outputName(rel))
 		if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil { // #nosec G301 -- scaffolded project dir must be user-browsable
 			return fmt.Errorf("failed to create directory for %s: %w", dest, err)
 		}
-		if err := os.WriteFile(dest, rendered.Bytes(), 0644); err != nil { // #nosec G306 -- generated source files use conventional 0644, no secrets
+		// #nosec G306 -- fileMode narrows the generated .env to 0600; every
+		// other generated file is ordinary source that must stay user-readable
+		// at the conventional 0644.
+		if err := os.WriteFile(dest, rendered.Bytes(), fileMode(dest)); err != nil {
 			return fmt.Errorf("failed to create %s: %w", dest, err)
 		}
 		return nil
