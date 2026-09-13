@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"strings"
 
 	iapp "github.com/vukyn/testproj/internal/app"
 	"github.com/vukyn/testproj/internal/config"
@@ -45,7 +46,7 @@ func (s *Server) Start() {
 	})
 
 	// Middlewares
-	s.app.Use(cors.New())
+	s.app.Use(s.corsMiddleware())
 	zerologLogger := log.New().Zerolog()
 	s.app.Use(fiberzerolog.New(fiberzerolog.Config{
 		Logger: &zerologLogger,
@@ -86,6 +87,34 @@ func (s *Server) Start() {
 
 func (s *Server) Stop() error {
 	return s.app.Shutdown()
+}
+
+// defaultCORSAllowOrigins is the local development fallback: the Vite dev
+// server plus the API's own port.
+//
+// TODO: set CORS_ALLOW_ORIGINS in the environment to this service's real
+// browser origin(s) before deploying.
+const defaultCORSAllowOrigins = "http://localhost:5173,http://localhost:8080"
+
+// corsMiddleware builds the CORS handler mounted by Start. It is a method
+// rather than an inline call so the shipped test exercises the same
+// construction the server actually mounts.
+func (s *Server) corsMiddleware() fiber.Handler {
+	return cors.New(cors.Config{
+		AllowOrigins: corsAllowOrigins(s.cfg),
+	})
+}
+
+// corsAllowOrigins resolves the browser origins allowed to call the API.
+// Fiber's cors default is "*", and it restores that default whenever
+// AllowOrigins is empty — so an unset or blank CORS_ALLOW_ORIGINS would
+// silently reopen the API to every origin. This funnels through an explicit
+// local-development fallback instead.
+func corsAllowOrigins(cfg *config.Config) string {
+	if origins := strings.TrimSpace(cfg.CORS.AllowOrigins); origins != "" {
+		return origins
+	}
+	return defaultCORSAllowOrigins
 }
 
 // webRoutes serves the embedded single-page app: a root-level favicon route (so

@@ -28,9 +28,9 @@ Presets:
 
 - **base** (default) — plain "hello world" Go project: `main.go`, `go.mod`, `.env`, `Makefile`, `README.md`, `.gitignore`, `todo`.
 - **fiber** — Fiber v3 HTTP server: adds `internal/handler/health.go` (`/health` → `{"status":"ok"}`), `main.go` with graceful shutdown (signal.NotifyContext SIGINT/SIGTERM + `app.Shutdown`), `APP_PORT` in `.env`, and a fiber dependency in `go.mod`.
-- **platform-service** — full clean-architecture service mirroring the pet-platform template (isme/rainy shape): Fiber **v2**, Bun ORM over **SQLite** (`sqlitedialect` + `sqliteshim`, no CGO), `sarulabs/di/v2` DI container, and the shared `github.com/vukyn/kuery` helpers. Ships an example `item` domain (`/api/v1/items` CRUD: POST/GET-list/GET/PATCH/DELETE-soft-delete, no auth) across the standard layers (`entity`/`models`/`repository`/`usecase`/`handlers/http`/`exceptions`), a migration runner (`db/migrate.go` + `db/history/sqlite`), DI wiring (`config → db → middleware → repos → usecases`), and a `CLAUDE.md` for onboarder platform-fit. IDs use `kuery/cryp.ULID`. The kuery version pinned in the generated `go.mod` tracks what isme currently requires.
+- **platform-service** — full clean-architecture service mirroring the pet-platform template (isme/rainy shape): Fiber **v2**, Bun ORM over **SQLite** (`sqlitedialect` + `sqliteshim`, no CGO), `sarulabs/di/v2` DI container, and the shared `github.com/vukyn/kuery` helpers. Ships an example `item` domain (`/api/v1/items` CRUD: POST/GET-list/GET/PATCH/DELETE-soft-delete, no auth) across the standard layers (`entity`/`models`/`repository`/`usecase`/`handlers/http`/`exceptions`), a migration runner (`db/migrate.go` + `db/history/sqlite`), DI wiring (`config → db → middleware → repos → usecases`), and a `CLAUDE.md` for onboarder platform-fit. IDs use `kuery/cryp.ULID`. The kuery version pinned in the generated `go.mod` tracks what isme currently requires — ⚠️ re-check it when touching the preset, since kuery prunes all but its 5 newest tags and a pruned pin is unresolvable even via proxy.golang.org.
 
-  Extension points (intentionally out of scope for the generated skeleton, documented in its `CLAUDE.md`): no `_test.go` files, no UI (`--ui` is a future enhancement — add a Vite/React `ui/` embedded into the Go binary), **SQLite-only** (a MongoDB variant would swap `di_db.go` + repo impls and drop the migration runner), and **no auth** (wire `kuery/auth` middleware in `internal/middlewares` + `internal/server` to protect routes).
+  Extension points (intentionally out of scope for the generated skeleton, documented in its `CLAUDE.md`): thin test coverage (the preset ships only `container_ownership_test.go`, `web_test.go` and `internal/server/cors_test.go` — guards for traps, not domain tests), no UI (`--ui` is a future enhancement — add a Vite/React `ui/` embedded into the Go binary), **SQLite-only** (a MongoDB variant would swap `di_db.go` + repo impls and drop the migration runner), and **no auth** (wire `kuery/auth` middleware in `internal/middlewares` + `internal/server` to protect routes).
 
 - **iot** — minimal ESP32-S3 firmware skeleton (C++/PlatformIO, **non-Go**). Renders `platformio.ini` (single esp32-s3 env pinning the shared `kuino` lib), a thin `src/main.cpp` wired to `kuino::wifi`, `include/config.h.example`, `.gitignore`, `README.md`, `CLAUDE.md`. `go mod tidy` is skipped (no `go.mod`).
 
@@ -98,6 +98,30 @@ The Makefile sources `.env` (currently empty placeholders for `PRJ`/`VERSION`).
 - File permissions are deliberate for scaffolder output: `0755` dirs / `0644` files, annotated with `// #nosec` (G301/G306) — generated projects must be user-readable. **The one exception is `.env` (`0600`)**: it is the platform's secrets file and receives live credentials as soon as a scaffolded service is wired up, so `fileMode()` in `render.go` narrows it and `renderPreset` refuses to overwrite one that already exists. Keep the `#nosec` annotations accurate when touching the write paths — the old G306 justification said "no secrets", which stopped being true the moment `.env` was special-cased.
 - **Golden fixtures + .gitignore**: `testdata/golden/<preset>/` includes fixtures named `.env`/`.gitignore`/`todo`. The per-preset golden `.gitignore` self-ignores its sibling `.env`/`todo`, so a plain `git add` skips four files; the first commit of new/changed goldens needs `git add -f testdata/golden`.
 - Bump `version/version.go` when cutting a release; tag via `make tag`.
+
+## ⚠️ Pinned dependency versions in templates rot silently
+
+A preset's pins are not covered by any gate in this repo: the goldens only assert that the
+rendered text matches, and the rendered text is wrong in exactly the same way as the
+template. Two pins had already become **unresolvable** before anyone noticed:
+
+- `templates/iot/platformio.ini.tmpl` pinned `kuino.git#v0.1.0`, pruned by kuino's
+  keep-5-newest-tags retention. Every `iot` scaffold died at `pio pkg install` with
+  `fatal: Remote branch v0.1.0 not found in upstream origin`.
+- `templates/platform-service/go.mod.tmpl` pinned `github.com/vukyn/kuery v1.41.0`, pruned
+  by kuery's identical rule. `proxy.golang.org` returns **404** for it, so the platform
+  CLAUDE.md's "old versions remain fetchable via the proxy cache" does not hold — every
+  `platform-service` scaffold failed `go mod tidy`.
+
+Both were invisible because a failed `go mod tidy` used to print `Warning:` and then
+`Project setup complete` at exit 0. That is now an error (see the flags section), which is
+the only reason the kuery pin surfaced at all.
+
+**When bumping a pin, rendering is not verification.** Scaffold into a throwaway directory
+outside the platform root and actually build it: `go build ./...` + `go vet ./...` +
+`go test ./...` for the Go presets, `pio run` for `iot` (~35s with the ESP32 toolchain
+cached). The keep-5-newest rule applies to both kuino and kuery, so a pin more than five
+minor versions behind should be assumed dead until proven otherwise.
 
 ## ⚠️ Preset `platform-service` propagates a root-file/catch-all trap
 

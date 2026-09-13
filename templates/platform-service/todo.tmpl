@@ -3,3 +3,6 @@
 - [ ] Adjust the `item` domain (or replace it) to model your real entity.
 - [ ] Add domain validation rules in models/*.go .Validate().
 - [ ] Wire any new domains into internal/di and internal/server.
+- [ ] **Before deploying:** set `CORS_ALLOW_ORIGINS` to this service's real
+      browser origin(s). It ships with the local development origins, and the
+      `/api/v1/items` routes are unauthenticated.
