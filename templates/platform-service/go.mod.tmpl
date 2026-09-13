@@ -14,3 +14,11 @@ require (
 	github.com/uptrace/bun/driver/sqliteshim v1.2.16
 	github.com/vukyn/kuery v1.61.0
 )
+
+// Transitive, pinned forward for a vulnerability fix rather than for a direct
+// import. gofiber/template/html/v2 pulls gofiber/utils, and the version it
+// would otherwise resolve to (v1.1.0) carries GO-2025-4208, which govulncheck
+// finds REACHABLE from fiber.New via utils.ReadFile/utils.Walk. Minimal version
+// selection takes the maximum, so this line raises it. Drop it once
+// gofiber/template requires v1.2.0 or later itself.
+require github.com/gofiber/utils v1.2.0 // indirect
