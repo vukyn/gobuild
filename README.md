@@ -47,7 +47,28 @@ gobuild hello-world --go 1.24.2
 # With a preset
 gobuild my-service --preset platform-service
 gobuild my-device --preset iot
+
+# Render into a directory that already has files in it
+gobuild my-service --force
 ```
+
+Without `--go`, the generated `go.mod` follows the local toolchain version.
+
+### Input rules
+
+The project name, `--module` path and `--go` version are substituted into
+generated files verbatim, so they are validated up front and **rejected**
+rather than rewritten:
+
+-   **name** — `^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$`. Path separators, `..` and
+    absolute paths are not accepted, so the project always lands in a new
+    subdirectory of the working directory.
+-   **`--module`** — must be a valid Go module path (same check the `go`
+    command applies).
+-   **`--go`** — `MAJOR.MINOR` or `MAJOR.MINOR.PATCH`.
+
+A non-empty destination directory is refused unless `--force` is given, and an
+existing `.env` is never overwritten (it is also generated `0600`, not `0644`).
 
 ## Presets
 

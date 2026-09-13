@@ -2,7 +2,10 @@ module github.com/vukyn/gobuild
 
 go 1.27.1
 
-require github.com/urfave/cli/v2 v2.27.7
+require (
+	github.com/urfave/cli/v2 v2.27.7
+	golang.org/x/mod v0.41.0
+)
 
 require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect

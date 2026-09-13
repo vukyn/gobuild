@@ -39,9 +39,20 @@ gobuild now emits **non-Go** presets too; `go mod tidy` runs only when a `go.mod
 ### Flags
 
 - `--name`/`-n` — project name (or positional arg).
-- `--go` — Go version (defaults to the local toolchain).
+- `--go` — Go version. The flag default is deliberately **empty** so `detectGoVersion()` reads the local toolchain (`go version`), falling back to `goVersionFallback` when the toolchain cannot be queried. ⚠️ Do not give this flag a static default: a literal `"1.24"` made the detect branch unreachable and every generated `go.mod` said `go 1.24` on a 1.27.1 toolchain, while this doc and the flag usage both claimed it followed the toolchain.
 - `--http-template`/`--preset` — preset (`base|fiber|platform-service|iot`, default `base`).
 - `--module`/`-m` — Go module path (defaults to `github.com/vukyn/<name>`). Threaded into `templateData.ModulePath`; the `platform-service` preset uses it for the `go.mod` module line and all internal imports. `base`/`fiber` ignore it.
+- `--force`/`-f` — render into an existing **non-empty** directory. Without it, a non-empty destination is refused rather than silently overwritten. An existing `.env` is preserved even under `--force`.
+
+### ⚠️ Input validation is a security boundary, not ergonomics
+
+`text/template` escapes nothing, so every caller-supplied value lands verbatim in generated files. `validate.go` rejects (never sanitizes) before any rendering:
+
+- **project name** — `^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$`. This single pattern is also what keeps the destination inside the working directory: it admits no path separator, no `..`, no leading dot and no leading `/`, so there is deliberately **no second containment check** to keep in sync. A name of `svc", "overrides": {...}, "y": "` previously produced *valid* JSON in `ui/package.json` with an attacker `overrides` entry.
+- **module path** — `golang.org/x/mod/module.CheckPath`, the same rules the go command applies. A newline in `--module` previously appended a `require github.com/attacker/backdoor v1.0.0` line to the generated `go.mod`, which the automatic `go mod tidy` then resolved.
+- **Go version** — `^\d+\.\d+(\.\d+)?$`, same directive-injection surface.
+
+Post-setup (`go mod tidy`, `git init`) failures are returned as errors. They used to print `Warning:` and then `Project setup complete` and exit 0.
 
 Flags can appear before or after the positional name (`reorderArgs` in `main.go` normalizes ordering, since urfave/cli v2 otherwise stops flag parsing at the first positional arg). `valueFlags` lists every flag that consumes the following token so reordering skips flag values.
 
@@ -50,9 +61,10 @@ Flags can appear before or after the positional name (`reorderArgs` in `main.go`
 ## Structure
 
 ```
-main.go            # urfave/cli/v2 entrypoint, flag reordering, generateProject(): mkdir, render, tidy + git init
+main.go            # urfave/cli/v2 entrypoint (newApp), flag reordering, generateProject(): validate, mkdir, render, tidy + git init
+validate.go        # validateProjectName/validateModulePath/validateGoVersion — the injection boundary
 embed.go           # //go:embed all:templates → templatesFS
-render.go          # templateData struct, dotfileNames map, outputName(), renderPreset()
+render.go          # templateData struct, dotfileNames map, outputName(), fileMode(), renderPreset()
 templates/         # embedded template tree — one folder per preset (self-contained)
   README.md        # template conventions (.tmpl suffix, dotfile mapping, .raw, adding files/presets)
   base/            # default preset templates (*.tmpl)
@@ -83,7 +95,7 @@ The Makefile sources `.env` (currently empty placeholders for `PRJ`/`VERSION`).
 - **Adding a generated file**: drop a new `<name>.tmpl` into the preset folder under `templates/<preset>/`. The walker picks it up automatically — no code changes. Dotfiles are stored without a leading dot and mapped via `dotfileNames` in `render.go`.
 - **Adding a preset**: create `templates/<preset>/` with the full file set (presets are self-contained — no layering/overlay; minor static-file duplication is accepted), update the `--http-template` usage string in `main.go`, and add it to `presets` in `gobuild_test.go` then run `go test . -update`.
 - New template fields go in `templateData` (`render.go`); reference them as `{{.Field}}`. Rendering uses `missingkey=error`, so a typo'd placeholder fails the build loudly.
-- File permissions are deliberate for scaffolder output: `0755` dirs / `0644` files, annotated with `// #nosec` (G301/G306) — generated projects must be user-readable and contain no secrets. Keep those annotations when touching the write paths.
+- File permissions are deliberate for scaffolder output: `0755` dirs / `0644` files, annotated with `// #nosec` (G301/G306) — generated projects must be user-readable. **The one exception is `.env` (`0600`)**: it is the platform's secrets file and receives live credentials as soon as a scaffolded service is wired up, so `fileMode()` in `render.go` narrows it and `renderPreset` refuses to overwrite one that already exists. Keep the `#nosec` annotations accurate when touching the write paths — the old G306 justification said "no secrets", which stopped being true the moment `.env` was special-cased.
 - **Golden fixtures + .gitignore**: `testdata/golden/<preset>/` includes fixtures named `.env`/`.gitignore`/`todo`. The per-preset golden `.gitignore` self-ignores its sibling `.env`/`todo`, so a plain `git add` skips four files; the first commit of new/changed goldens needs `git add -f testdata/golden`.
 - Bump `version/version.go` when cutting a release; tag via `make tag`.
 
