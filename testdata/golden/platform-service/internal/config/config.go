@@ -25,6 +25,12 @@ type Config struct {
 	Vite struct {
 		BaseURL string `envconfig:"VITE_API_BASE_URL"`
 	}
+	// CORS holds the browser origins allowed to call the API, as a
+	// comma-separated list. Left empty the server falls back to the local
+	// development origins rather than to a wildcard.
+	CORS struct {
+		AllowOrigins string `envconfig:"CORS_ALLOW_ORIGINS"`
+	}
 }
 
 func LoadConfig(envFiles ...string) (*Config, error) {

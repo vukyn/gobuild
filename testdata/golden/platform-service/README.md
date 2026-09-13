@@ -29,6 +29,14 @@ make run
 The server boots Fiber on the port from `.env` (`APP_PORT`, default 8080) and
 exposes the example `item` domain under `/api/v1/items`.
 
+> **TODO before deploying — CORS.** `CORS_ALLOW_ORIGINS` in `.env` is a
+> comma-separated allow-list of browser origins, and it ships pointing at the
+> local development origins (`http://localhost:5173,http://localhost:8080`).
+> Set it to this service's real origin(s). Leaving it **blank does not disable
+> CORS** — `internal/server` falls back to the same local origins, which is
+> deliberate: Fiber's own default for an empty `AllowOrigins` is `*`, and the
+> `/api/v1/items` routes ship unauthenticated.
+
 ## Example endpoints
 
 | Method | Path                | Description          |

@@ -1,0 +1,82 @@
+package server
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/vukyn/testproj/internal/config"
+
+	"github.com/gofiber/fiber/v2"
+)
+
+// The API ships with unauthenticated CRUD routes, so the CORS allow-list is a
+// real boundary rather than a formality. Fiber's cors middleware substitutes
+// its own default — AllowOrigins: "*" — whenever the field is empty, which
+// means a blank CORS_ALLOW_ORIGINS would silently reopen the API to every
+// origin. These tests pin the interception that prevents that.
+
+func TestCORSAllowOriginsFallsBackToLocalOrigins(t *testing.T) {
+	cases := map[string]string{
+		"unset":           "",
+		"whitespace only": "   ",
+	}
+	for label, configured := range cases {
+		cfg := new(config.Config)
+		cfg.CORS.AllowOrigins = configured
+
+		got := corsAllowOrigins(cfg)
+		if got == "*" {
+			t.Errorf("corsAllowOrigins(%s) = %q — the wildcard default must never be reachable", label, got)
+		}
+		if got != defaultCORSAllowOrigins {
+			t.Errorf("corsAllowOrigins(%s) = %q, want %q", label, got, defaultCORSAllowOrigins)
+		}
+	}
+}
+
+func TestCORSAllowOriginsUsesConfiguredValue(t *testing.T) {
+	cfg := new(config.Config)
+	cfg.CORS.AllowOrigins = "https://app.example.com"
+
+	if got := corsAllowOrigins(cfg); got != "https://app.example.com" {
+		t.Errorf("corsAllowOrigins(configured) = %q, want the configured value", got)
+	}
+}
+
+// TestCORSRejectsUnlistedOrigin mounts the very handler Start() mounts, so it
+// fails if corsMiddleware is ever reduced back to a bare cors.New().
+func TestCORSRejectsUnlistedOrigin(t *testing.T) {
+	cfg := new(config.Config)
+	cfg.CORS.AllowOrigins = "https://app.example.com"
+
+	app := fiber.New()
+	app.Use(NewServer(cfg).corsMiddleware())
+	app.Get("/probe", func(c *fiber.Ctx) error {
+		return c.SendString("ok")
+	})
+
+	request := httptest.NewRequest(http.MethodGet, "/probe", nil)
+	request.Header.Set("Origin", "https://evil.example")
+	response, err := app.Test(request)
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	if allowed := response.Header.Get("Access-Control-Allow-Origin"); allowed != "" {
+		t.Errorf("unlisted origin was allowed: Access-Control-Allow-Origin = %q", allowed)
+	}
+
+	request = httptest.NewRequest(http.MethodGet, "/probe", nil)
+	request.Header.Set("Origin", "https://app.example.com")
+	response, err = app.Test(request)
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	if allowed := response.Header.Get("Access-Control-Allow-Origin"); allowed != "https://app.example.com" {
+		t.Errorf("listed origin was not allowed: Access-Control-Allow-Origin = %q", allowed)
+	}
+}

@@ -161,3 +161,20 @@ before the SPA catch-all, and `/*` renders the SPA. A committed
   open). To protect routes, add the `kuery/auth` middleware in
   `internal/middlewares` and apply it in `internal/server` route registration,
   as the platform's downstream services do.
+
+## ⚠️ TODO before deploying: CORS_ALLOW_ORIGINS
+
+`internal/server/server.go` configures `cors.New` from `cfg.CORS.AllowOrigins`
+(`CORS_ALLOW_ORIGINS` in `.env`), a comma-separated allow-list that ships
+pointing at the local development origins.
+
+Set it to this service's real browser origin(s). Two things make this easy to
+get wrong:
+
+- **Blank does not mean "off".** Fiber's `cors` middleware substitutes its own
+  default, `AllowOrigins: "*"`, whenever the field is empty. `corsAllowOrigins`
+  in `internal/server/server.go` exists precisely to intercept that and fall
+  back to `defaultCORSAllowOrigins` instead — do not "simplify" it back to a
+  bare `cors.New()`.
+- **The example routes are unauthenticated.** `/api/v1/items` ships as open
+  CRUD, so a wildcard origin is a wildcard on write endpoints, not just reads.
