@@ -1,0 +1,62 @@
+package di
+
+import (
+	"github.com/vukyn/testproj/internal/constants"
+
+	kueryDb "github.com/vukyn/kuery/bun/db"
+	pkgBunHooks "github.com/vukyn/kuery/bun/hooks"
+	"github.com/vukyn/kuery/log"
+
+	"github.com/sarulabs/di/v2"
+	"github.com/uptrace/bun"
+)
+
+func defineDB() *di.Def {
+	return &di.Def{
+		Name:  constants.CONTAINER_NAME_DB,
+		Scope: di.App,
+		Build: func(ctn di.Container) (any, error) {
+			cfg := GetConfig(ctn)
+
+			// Build the dialect-aware connection from cfg.DB. This preset is
+			// Postgres-only; the shared kueryDb.Open factory picks the pgdialect +
+			// pgdriver and builds the DSN from the discrete fields when DSN is empty.
+			//
+			// No pool overrides here on purpose: kuery's applyPool already supplies
+			// the Postgres idle/lifetime defaults that keep a pooled connection from
+			// being handed out after the server closed it (the bare `EOF` failure).
+			db, err := kueryDb.Open(kueryDb.Config{
+				Driver:      kueryDb.Driver(cfg.DB.Driver),
+				SQLitePath:  cfg.DB.SQLitePath,
+				PostgresDSN: cfg.DB.DSN,
+				Host:        cfg.DB.Host,
+				Port:        cfg.DB.Port,
+				User:        cfg.DB.User,
+				Password:    cfg.DB.Password,
+				DBName:      cfg.DB.DBName,
+				SSLMode:     cfg.DB.SSLMode,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			driver := cfg.DB.Driver
+			if driver == "" {
+				driver = string(kueryDb.DriverPostgres)
+			}
+			log.New().Infof("Database initialized with driver %q", driver)
+
+			db.AddQueryHook(pkgBunHooks.NewQueryHook(log.New()))
+			return db, nil
+		},
+		Close: func(obj any) error {
+			db := obj.(*bun.DB)
+			log.New().Debug("Database closed")
+			return db.Close()
+		},
+	}
+}
+
+func GetDB(ctn di.Container) *bun.DB {
+	return ctn.Get(constants.CONTAINER_NAME_DB).(*bun.DB)
+}

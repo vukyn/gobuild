@@ -5,8 +5,19 @@
 > note would never have been committed. `☐` marks open items (platform convention).
 
 ```
-gobuild — preset `platform-service`: root-level static files vs the SPA catch-all
+gobuild — presets `platform-service` + `platform-service-v3`: root-level static files
+vs the SPA catch-all
   Audit ngày 10/08/2026 (từ gardener PR #106). Read-only, CHƯA sửa gì.
+
+  ⚠️ CẬP NHẬT 13/09/2026: preset `platform-service-v3` (Fiber v3 + Postgres) đã ra đời và
+  TÁI TẠO ĐÚNG shape này — CỐ Ý, chủ repo chốt. Lý do: sửa ở một preset thôi sẽ làm hai
+  preset lệch nhau thêm một chiều KHÔNG liên quan (ngoài hai chiều đã định là Fiber v2/v3
+  và SQLite/Postgres), người đọc sau không phân biệt được chỗ nào là khác biệt có chủ đích.
+  Template v3 có comment nói rõ điều đó và trỏ về file này.
+  → Mọi todo dưới đây giờ áp dụng cho CẢ HAI preset, và phải sửa trong CÙNG một PR.
+  → Lưu ý khi port sang v3: Fiber v3 KHÔNG còn `middleware/filesystem`. Bản v3 dùng
+  `static.New("", static.Config{FS: ...})` và `c.SendFile("name", fiber.SendFile{FS: uiFS})`.
+  Bẫy `.webmanifest` vẫn y nguyên (phải đọc bytes rồi `c.Send`, đừng trông vào SendFile).
 
   Kết luận: LỖI TIỀM ẨN, không phải đang cháy. Preset sinh ra service ĐÚNG ở thời
   điểm sinh, nhưng shape của nó vỡ ngay khi ai đó thêm bất kỳ file tĩnh nào ở root.

@@ -48,7 +48,7 @@ func newApp() *cli.App {
 			&cli.StringFlag{
 				Name:    "http-template",
 				Aliases: []string{"preset"},
-				Usage:   "Project preset (base|fiber|platform-service|iot)",
+				Usage:   "Project preset (base|fiber|platform-service|platform-service-v3|iot)",
 				Value:   "base",
 			},
 			&cli.StringFlag{
