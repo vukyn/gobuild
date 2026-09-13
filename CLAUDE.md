@@ -71,6 +71,8 @@ templates/         # embedded template tree — one folder per preset (self-cont
   fiber/           # fiber preset templates, incl. internal/handler/health.go.tmpl
 version/           # version.Current — the CLI's own version string
 testdata/golden/   # golden-file snapshots per preset (gobuild_test.go)
+scripts/           # scan-generated.sh — renders every preset and scans the OUTPUT
+.github/workflows/ # check.yml: make check on PR/push, make scan-generated weekly
 ```
 
 Templates are real `text/template` files embedded via `//go:embed all:templates`. `renderPreset` walks `templates/<preset>`, strips the `.tmpl` suffix, applies dotfile mapping (`env`→`.env`, `gitignore`→`.gitignore`), and renders with `Option("missingkey=error")`. See `templates/README.md` for the full convention.
@@ -78,17 +80,36 @@ Templates are real `text/template` files embedded via `//go:embed all:templates`
 ## Commands
 
 ```bash
-make build      # go build -o bin/ ./$(PRJ)
-make install    # go install ./$(PRJ)
-make tag        # git tag -a v$(VERSION) + push (VERSION comes from .env)
+make check           # the fast gate: gofmt + build + vet + test (offline, seconds)
+make scan-generated  # the slow gate: scan the code this tool EMITS (needs network, ~17s warm)
+make build           # go build -o bin/ ./$(PRJ)
+make install         # go install ./$(PRJ)
+make tag             # git tag -a v$(VERSION) + push (VERSION comes from .env)
 
 go build ./...        # verify
 go vet ./...
 go test ./...         # golden-snapshot + unit tests (offline, hermetic)
 go test . -update     # regenerate testdata/golden/<preset>/ after intentional template changes
+
+make scan-generated PRESETS=platform-service   # one preset only
 ```
 
-The Makefile sources `.env` (currently empty placeholders for `PRJ`/`VERSION`).
+The Makefile `-include`s `.env` (currently empty placeholders for `PRJ`/`VERSION`). ⚠️ It must stay `-include`: `.env` is gitignored, so with a bare `include` every target died with "No such file or directory. Stop." on any fresh clone, which is every CI runner.
+
+`.github/workflows/check.yml` runs both `make` targets — never a second copy of the steps. It also runs **on a weekly schedule**, and that is the load-bearing part: see the pin-rot section below for why a push trigger could not have caught the two dead pins.
+
+### ⚠️ `gosec: 0 issues` here has never looked at what this tool emits
+
+`make check` and every scanner run against this repository cover its own ~600 lines. The thousands of lines that reach real services live under `templates/` as `.tmpl` — not Go, not JSON, not anything a parser will open, so gosec, govulncheck and osv-scanner all walk straight past them. `osv-scanner` additionally exited 0 on the golden `ui/package.json` because **no lockfile exists anywhere in this repository** for it to resolve against.
+
+`make scan-generated` (`scripts/scan-generated.sh`) closes that: it renders every preset into a throwaway directory and scans it there, where the templates are real Go and a lockfile can be generated. It found real problems on its first run — two *reachable* vulnerabilities (`GO-2026-5970` in `x/text` via Fiber v3's `app.Listen`, `GO-2025-4208` in `gofiber/utils` via `fiber.New`) plus five gosec findings, none of which any gate on this repository could ever have reported.
+
+Two properties keep it from rotting, and they are deliberate:
+
+- **The preset list is read off `templates/*/`,** not written in the script. Adding a preset enrols it automatically.
+- **Which scanners run is decided by what a preset rendered** — `go.mod` → govulncheck + gosec, `ui/package.json` → npm audit — mirroring the `hasGoMod` rule the tool itself uses. A preset matching neither is reported as an explicit `skip` **with its reason**, never omitted silently, because a silent skip is the exact failure the script exists to correct.
+
+`iot` is that skip today: C++/PlatformIO with no Go module and no `package.json`, so govulncheck, gosec, osv-scanner and npm audit all have nothing to open — none of them applies, and running one for a green tick would be worse than saying so. Its real dependency risk is the pinned kuino tag, and `pio run` is that gate. It is **not** wired into the script on purpose: it would make every run depend on a PlatformIO install. Run it by hand when touching that preset.
 
 ## Conventions
 

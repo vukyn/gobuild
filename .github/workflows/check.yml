@@ -1,0 +1,82 @@
+# Two gates, on two schedules, because they fail for different reasons.
+#
+# ⚠️ Both run `make` rather than spelling the steps out again. The Makefile is
+# where each gate is defined, and a workflow listing `go vet` and a scanner list
+# would be a second copy that drifts — the first time somebody adds a preset or
+# a scanner, the copy that runs here would be the one that did not get it. Same
+# rule the other repositories on this platform follow.
+name: check
+
+on:
+  pull_request:
+  # Also on main: a pull request green against an older main can still break
+  # main when it lands.
+  push:
+    branches: [main]
+  # ⚠️ The schedule is the point of this file, not a nicety.
+  #
+  # This repository emits pinned dependencies, and two of them had already gone
+  # DEAD with no code change here at all: the kuino tag the `iot` preset pinned
+  # was pruned by that library's keep-5-newest-tags retention, and kuery's
+  # v1.41.0 was pruned by the identical rule and 404s on proxy.golang.org. Every
+  # scaffold of both presets failed, for months, and no push-triggered gate
+  # could ever have noticed — nothing in this repository changed. A clock is the
+  # only trigger that catches a dependency rotting underneath a static pin.
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: fast gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # ⚠️ The version comes off go.mod rather than being written here: that is
+      # already the one place this repository states which Go it needs.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - run: make check
+
+  scan-generated:
+    name: generated surface
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # For the platform-service UI. The generated project ships no lockfile by
+      # design, so the scan resolves one in the temp directory — without it npm
+      # audit and osv-scanner both exit 0 having inspected nothing, which is the
+      # exact false negative this job exists to close.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # govulncheck and gosec are not preinstalled. The script falls back to
+      # `go run <module>@latest` when they are missing, so this step is a speed
+      # optimisation rather than a requirement — a missing tool must never turn
+      # into a silently skipped scanner.
+      - name: install scanners
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+      - run: make scan-generated

@@ -37,7 +37,9 @@ func main() {
 		return nil
 	}
 
-	graceful.ShutdownWithCallback(
+	// The shutdown error is logged rather than returned: main has no caller
+	// left to hand it to by the time this unblocks.
+	if err := graceful.ShutdownWithCallback(
 		shutdown,
 		&graceful.ShutdownOptions{
 			Signals:   graceful.DefaultSignals,
@@ -46,5 +48,7 @@ func main() {
 			Timeout:   time.Duration(app.Config.Graceful.ServerShutdownTimeout) * time.Millisecond,
 			Logger:    log.New(),
 		},
-	) // ---> blocks here until a shutdown signal arrives
+	); err != nil { // ---> blocks here until a shutdown signal arrives
+		log.New().Errorf("Graceful shutdown failed: %v", err)
+	}
 }

@@ -78,7 +78,7 @@ func RunMigrations(dbType, dbPath string) (migrationModels.MigrationStats, error
 			}
 
 			if err := migration.Up(db); err != nil {
-				tx.Rollback()
+				_ = tx.Rollback() // the error being returned below is the one worth reporting
 				return stats, fmt.Errorf("failed to execute migration %s: %w", migration.Name, err)
 			}
 
@@ -88,7 +88,7 @@ func RunMigrations(dbType, dbPath string) (migrationModels.MigrationStats, error
 				ExecutedAt: time.Now(),
 			}
 			if _, err = db.NewInsert().Model(migrationRecord).Exec(ctx); err != nil {
-				tx.Rollback()
+				_ = tx.Rollback() // the error being returned below is the one worth reporting
 				return stats, fmt.Errorf("failed to record migration %s: %w", migration.Name, err)
 			}
 			lastMigratedID++
@@ -155,13 +155,13 @@ func RollbackLastMigration(dbType, dbPath string) (bool, error) {
 	}
 
 	if err := migration.Down(db); err != nil {
-		tx.Rollback()
+		_ = tx.Rollback() // the error being returned below is the one worth reporting
 		return false, fmt.Errorf("failed to rollback migration %s: %w", migration.Name, err)
 	}
 
 	_, err = db.NewDelete().Model(&migrationEntity.MigrationHistory{}).Where("name = ?", migration.Name).Exec(ctx)
 	if err != nil {
-		tx.Rollback()
+		_ = tx.Rollback() // the error being returned below is the one worth reporting
 		return false, fmt.Errorf("failed to remove migration record: %w", err)
 	}
 
