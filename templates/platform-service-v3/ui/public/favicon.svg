@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="app">
+  <!-- Placeholder favicon for a freshly-scaffolded platform-service.
+       A neutral rounded tile with an abstract "go" gopher-blue gradient and a
+       simple stacked-layers glyph (clean-architecture layers). Replace with the
+       real brand mark for your service. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00ADD8"/>
+      <stop offset="1" stop-color="#5DC9E2"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#g)"/>
+  <g fill="#FFFFFF">
+    <rect x="8" y="9" width="16" height="3.2" rx="1.6"/>
+    <rect x="8" y="14.4" width="16" height="3.2" rx="1.6" opacity="0.8"/>
+    <rect x="8" y="19.8" width="16" height="3.2" rx="1.6" opacity="0.6"/>
+  </g>
+</svg>

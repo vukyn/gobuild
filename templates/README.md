@@ -9,9 +9,11 @@ when the user selects it (`--http-template <preset>`, default `base`).
 
 ```
 templates/
-  base/             # plain "hello world" Go project (default preset)
-  fiber/            # Fiber v3 HTTP server with /health + graceful shutdown
-  platform-service/ # full clean-architecture service (Fiber v2 + Bun/SQLite + DI)
+  base/                # plain "hello world" Go project (default preset)
+  fiber/               # Fiber v3 HTTP server with /health + graceful shutdown
+  platform-service/    # full clean-architecture service (Fiber v2 + Bun/SQLite + DI)
+  platform-service-v3/ # same service on Fiber v3 + Bun/Postgres (kuery v3 twins)
+  iot/                 # ESP32-S3 firmware skeleton (C++/PlatformIO, non-Go)
 ```
 
 Presets are self-contained: each folder carries its own copy of every file it
@@ -33,8 +35,9 @@ Available template fields (see `templateData` in `render.go`):
 - `{{.GoVersion}}` — the Go version (`--go`, defaults to the local toolchain)
 - `{{.Preset}}` — the selected preset name
 - `{{.ModulePath}}` — the Go module path (`--module`/`-m`, defaults to
-  `github.com/vukyn/<name>`). The `platform-service` preset uses this for its
-  module declaration and every internal import; `base`/`fiber` ignore it.
+  `github.com/vukyn/<name>`). The `platform-service` and `platform-service-v3`
+  presets use this for their module declaration and every internal import;
+  `base`/`fiber` ignore it.
 
 ### Dotfile mapping
 

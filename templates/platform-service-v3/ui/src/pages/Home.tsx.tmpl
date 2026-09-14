@@ -1,0 +1,15 @@
+import { Flex, Heading, Text, VStack } from "@chakra-ui/react";
+
+// Home is the placeholder landing page for a freshly-scaffolded service. It is a
+// named export loaded as its own lazy route chunk from App.tsx. Replace it with
+// the real first screen of the {{.ProjectName}} UI.
+export function Home() {
+	return (
+		<Flex minH="100dvh" align="center" justify="center">
+			<VStack gap="2">
+				<Heading size="lg">{{.ProjectName}}</Heading>
+				<Text color="fg.muted">The UI is up. Start building from here.</Text>
+			</VStack>
+		</Flex>
+	);
+}

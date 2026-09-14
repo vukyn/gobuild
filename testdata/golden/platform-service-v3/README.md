@@ -1,0 +1,102 @@
+# testproj
+
+A clean-architecture Go service scaffolded by `gobuild` with the
+`platform-service-v3` preset. It mirrors the pet-platform service template:
+Fiber v3, Bun ORM over Postgres, `sarulabs/di/v2` for dependency injection, and
+the shared `github.com/vukyn/kuery` helpers.
+
+Module path: `github.com/vukyn/testproj`.
+
+## Prerequisites
+
+- Go 1.24 or newer
+- Docker (for the local Postgres in `docker-compose.yml`) — or any reachable
+  Postgres, configured through the `DB_*` variables in `.env`.
+
+## Quickstart
+
+```bash
+# 1. Install dependencies
+go mod tidy
+
+# 2. Start the local Postgres (docker-compose.yml; credentials match .env)
+make db-up
+
+# 3. Run migrations
+make migrate-up DB=postgres
+
+# 4. Start the server (reads .env, listens on APP_PORT)
+make run
+```
+
+The server boots Fiber on the port from `.env` (`APP_PORT`, default 8080) and
+exposes the example `item` domain under `/api/v1/items`.
+
+> **TODO before deploying — CORS.** `CORS_ALLOW_ORIGINS` in `.env` is a
+> comma-separated allow-list of browser origins, and it ships pointing at the
+> local development origins (`http://localhost:5173,http://localhost:8080`).
+> Set it to this service's real origin(s). Leaving it **blank does not disable
+> CORS** — `internal/server` falls back to the same local origins, which is
+> deliberate: Fiber v3 treats an **empty `AllowOrigins` slice** as allow-all
+> (`len(AllowOrigins) == 0 && AllowOriginsFunc == nil`), without the value ever
+> containing `"*"`, and the `/api/v1/items` routes ship unauthenticated.
+> A **malformed** origin makes Fiber v3 panic at boot rather than silently not
+> match — that is deliberate; fix the value.
+
+> **Behind a proxy — `APP_PROXY_HEADER`.** On Fiber v3, setting `ProxyHeader`
+> alone does nothing: `c.IP()` consults it only for a *trusted* proxy.
+> `internal/server`'s `proxyTrust` derives `TrustProxy` +
+> `TrustProxyConfig{Loopback, Private}` from this variable, so set the variable
+> and leave that wiring alone. Without it every caller collapses into the
+> proxy's own address, with no error anywhere.
+
+## Example endpoints
+
+| Method | Path                | Description          |
+| ------ | ------------------- | -------------------- |
+| POST   | /api/v1/items       | Create an item       |
+| GET    | /api/v1/items       | List items           |
+| GET    | /api/v1/items/:id   | Get one item         |
+| PATCH  | /api/v1/items/:id   | Update an item       |
+| DELETE | /api/v1/items/:id   | Soft-delete an item  |
+
+```bash
+# Create
+curl -s -X POST localhost:8080/api/v1/items \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"first","description":"hello"}'
+
+# List
+curl -s localhost:8080/api/v1/items
+```
+
+## Structure
+
+```
+cmd/main.go                 # entrypoint: app.Init + server start + graceful shutdown
+docker-compose.yml          # local dev Postgres (make db-up / make db-down)
+db/migrate.go               # migration runner (go run db/migrate.go postgres up|down|reset)
+db/history/                 # one migration per file + migrations.go (execution order)
+internal/app/               # App + Config globals, Init builds the DI container
+internal/config/            # envconfig + godotenv loader
+internal/constants/         # DI container names + route/endpoint constants
+internal/server/            # Fiber setup + route registration
+internal/middlewares/       # middleware struct + request-scoped DI injection
+internal/di/                # DI builder: config -> db -> middleware -> repos -> usecases
+internal/domains/item/      # example domain (entity / models / repository / usecase / handlers / exceptions)
+```
+
+Each domain follows the platform layering: `entity` (Bun models) ->
+`repository` (data access behind an `IRepository` interface) -> `usecase`
+(business logic depending on the interface) -> `handlers/http` (thin Fiber
+handlers). DTOs with `.Validate()` live in `models`, domain errors in
+`exceptions`.
+
+## Conventions
+
+Template fields rendered at scaffold time: the project name, the Go version,
+the selected preset, and the module path. After generation there are no
+remaining placeholders to fill in by hand.
+
+See `CLAUDE.md` for the architecture contract, the Fiber v3 notes, and the
+documented extension points (auth, MongoDB, rate limiting).

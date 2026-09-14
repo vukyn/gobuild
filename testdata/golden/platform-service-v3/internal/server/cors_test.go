@@ -1,0 +1,95 @@
+package server
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"slices"
+	"testing"
+
+	"github.com/vukyn/testproj/internal/config"
+
+	"github.com/gofiber/fiber/v3"
+)
+
+// The API ships with unauthenticated CRUD routes, so the CORS allow-list is a
+// real boundary rather than a formality.
+//
+// ⚠️ Fiber v3's trigger differs from v2's and that difference is the whole point
+// of these tests. v2 held AllowOrigins as a STRING and substituted the literal
+// "*" when it was empty. v3 holds a SLICE and computes
+//
+//	allowAllOrigins := len(cfg.AllowOrigins) == 0 && cfg.AllowOriginsFunc == nil
+//
+// so an empty slice is allow-all while never containing "*". A test that only
+// asserted `got != "*"` — the v2 assertion — would pass on a wide-open config.
+// Assert the LENGTH.
+
+func TestCORSAllowOriginsFallsBackToLocalOrigins(t *testing.T) {
+	cases := map[string]string{
+		"unset":           "",
+		"whitespace only": "   ",
+		"commas only":     " , , ",
+	}
+	for label, configured := range cases {
+		cfg := new(config.Config)
+		cfg.CORS.AllowOrigins = configured
+
+		got := corsAllowOrigins(cfg)
+		if len(got) == 0 {
+			t.Errorf("corsAllowOrigins(%s) returned an EMPTY slice — Fiber v3 reads len(AllowOrigins)==0 as allow-all, so this reopens the API to every origin without the value ever being %q", label, "*")
+		}
+		if slices.Contains(got, "*") {
+			t.Errorf("corsAllowOrigins(%s) = %v — the wildcard must never be reachable", label, got)
+		}
+		if !slices.Equal(got, defaultCORSAllowOrigins) {
+			t.Errorf("corsAllowOrigins(%s) = %v, want %v", label, got, defaultCORSAllowOrigins)
+		}
+	}
+}
+
+func TestCORSAllowOriginsUsesConfiguredValue(t *testing.T) {
+	cfg := new(config.Config)
+	cfg.CORS.AllowOrigins = "https://a.example.com, https://b.example.com"
+
+	want := []string{"https://a.example.com", "https://b.example.com"}
+	if got := corsAllowOrigins(cfg); !slices.Equal(got, want) {
+		t.Errorf("corsAllowOrigins(configured) = %v, want %v (the list must be split on commas and each entry trimmed)", got, want)
+	}
+}
+
+// TestCORSRejectsUnlistedOrigin mounts the very handler Start() mounts, so it
+// fails if corsMiddleware is ever reduced back to a bare cors.New().
+func TestCORSRejectsUnlistedOrigin(t *testing.T) {
+	cfg := new(config.Config)
+	cfg.CORS.AllowOrigins = "https://app.example.com"
+
+	app := fiber.New()
+	app.Use(NewServer(cfg).corsMiddleware())
+	app.Get("/probe", func(c fiber.Ctx) error {
+		return c.SendString("ok")
+	})
+
+	request := httptest.NewRequest(http.MethodGet, "/probe", nil)
+	request.Header.Set("Origin", "https://evil.example")
+	response, err := app.Test(request)
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	if allowed := response.Header.Get("Access-Control-Allow-Origin"); allowed != "" {
+		t.Errorf("unlisted origin was allowed: Access-Control-Allow-Origin = %q", allowed)
+	}
+
+	request = httptest.NewRequest(http.MethodGet, "/probe", nil)
+	request.Header.Set("Origin", "https://app.example.com")
+	response, err = app.Test(request)
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	if allowed := response.Header.Get("Access-Control-Allow-Origin"); allowed != "https://app.example.com" {
+		t.Errorf("listed origin was not allowed: Access-Control-Allow-Origin = %q", allowed)
+	}
+}

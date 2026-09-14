@@ -77,6 +77,7 @@ Select a preset with `--http-template`/`--preset` (default `base`):
 -   **base** — plain "hello world" Go project (`main.go`, `go.mod`, `.env`, `Makefile`, `README.md`, `.gitignore`, `todo`).
 -   **fiber** — Fiber v3 HTTP server with a `/health` endpoint and graceful shutdown.
 -   **platform-service** — full clean-architecture Go service (Fiber v2, Bun/SQLite, sarulabs/di, kuery) with an example `item` domain and DI wiring.
+-   **platform-service-v3** — the same service on the newer stack: Fiber **v3**, Bun over **Postgres** (with a `docker-compose.yml` for local dev), `kuery/bun/migrate` one-file-per-migration, and kuery's v3 twins (`ctxv3`, `http/fiberv3`, `recoverv3`). Also ships the `TrustProxy` wiring that Fiber v3 requires for `APP_PROXY_HEADER` to do anything.
 -   **iot** — minimal ESP32-S3 firmware skeleton (C++/PlatformIO, **non-Go**). Renders `platformio.ini` (single esp32-s3 env pinning the shared `kuino` lib), a thin `src/main.cpp` wired to `kuino::wifi`, `include/config.h.example`, `.gitignore`, `README.md`, `CLAUDE.md`. `go mod tidy` is skipped (no `go.mod`).
 
 ## Generated Project Structure

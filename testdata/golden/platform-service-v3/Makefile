@@ -1,0 +1,38 @@
+# Makefile for testproj
+
+run:
+	go run cmd/main.go
+
+build:
+	go build -o bin/testproj cmd/main.go
+
+# Local Postgres for development (docker-compose.yml). Run db-up before the
+# first migrate-up.
+db-up:
+	docker compose up -d postgres
+
+db-down:
+	docker compose down
+
+migrate-up:
+	go run db/migrate.go $(DB) up
+
+migrate-down:
+	go run db/migrate.go $(DB) down
+
+migrate-reset:
+	go run db/migrate.go $(DB) reset
+
+# Vite dev server for the UI (proxy/API base from ui/.env).
+web:
+	cd ui && npm run dev
+
+# Build the UI and stage it for go:embed: the bundle goes to internal/web/dist,
+# and a .gitkeep keeps the embed dir (and the //go:embed all:dist pattern) valid
+# on a fresh checkout before any build. `go build` reads internal/web/dist at
+# compile time, so this MUST run before building the server with a real UI.
+build-web:
+	cd ui && npm install && npm run build
+	rm -rf ./internal/web/dist
+	mv ./ui/dist ./internal/web/dist
+	touch ./internal/web/dist/.gitkeep

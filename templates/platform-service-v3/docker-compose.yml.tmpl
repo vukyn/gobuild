@@ -1,0 +1,22 @@
+# Local dev infra only — spins up a Postgres for {{.ProjectName}}. Not for production; {{.ProjectName}} itself still runs via `make run`.
+services:
+  postgres:
+    image: postgres:16
+    container_name: {{.ProjectName}}-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-{{.ProjectName}}}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-{{.ProjectName}}}
+      POSTGRES_DB: ${DB_NAME:-{{.ProjectName}}}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - {{.ProjectName}}-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  {{.ProjectName}}-pgdata:

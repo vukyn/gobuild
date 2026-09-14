@@ -1,0 +1,13 @@
+# testproj — todo
+
+- [ ] Start Postgres (`make db-up`) and run `make migrate-up DB=postgres`
+      before the first `make run`.
+- [ ] Adjust the `item` domain (or replace it) to model your real entity.
+- [ ] Add domain validation rules in models/*.go .Validate().
+- [ ] Wire any new domains into internal/di and internal/server.
+- [ ] **Before deploying:** set `CORS_ALLOW_ORIGINS` to this service's real
+      browser origin(s). It ships with the local development origins, and the
+      `/api/v1/items` routes are unauthenticated.
+- [ ] **Behind a proxy:** set `APP_PROXY_HEADER` (e.g. `Fly-Client-IP`).
+      `internal/server` turns it into Fiber v3's `TrustProxy` wiring; on v3 the
+      header alone is a no-op and `c.IP()` silently returns the proxy's address.
