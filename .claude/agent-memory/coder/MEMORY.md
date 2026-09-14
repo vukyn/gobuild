@@ -16,3 +16,4 @@
 - [Rejection test masked by an earlier check](rejection-test-masked-by-earlier-check.md) — the poisoned name tripped module.CheckPath first; deleting the name regex left the test GREEN in 4/6 cases
 - [Pruned-tag pin rot](pruned-tag-pin-rot.md) — kuery/kuino keep 5 tags; proxy.golang.org 404s pruned versions (platform CLAUDE.md claims otherwise)
 - [Makefile include of a gitignored .env](makefile-include-gitignored-env.md) — bare `include ./.env` kills EVERY target on a fresh clone; sgo still has it
+- [di.Container is a struct, not an interface](di-container-is-a-struct-not-interface.md) — ⚠️ copy of tomatime's note, kept here because the platform-service preset ships the recover-inside-DI ordering this note questions
