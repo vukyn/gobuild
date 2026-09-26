@@ -12,7 +12,7 @@ require (
 	github.com/uptrace/bun v1.2.16
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.16
 	github.com/uptrace/bun/driver/sqliteshim v1.2.16
-	github.com/vukyn/kuery v1.61.0
+	github.com/vukyn/kuery v1.66.0
 )
 
 // Transitive, pinned forward for a vulnerability fix rather than for a direct
