@@ -28,5 +28,5 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/sarulabs/di/v2 v2.5.2
 	github.com/uptrace/bun v1.2.16
-	github.com/vukyn/kuery v1.61.0
+	github.com/vukyn/kuery v1.66.0
 )
