@@ -35,7 +35,10 @@ export default defineConfig({
 					}
 					const libraries = ["@chakra-ui", "react-icons", "axios"];
 					if (libraries.some((lib) => id.includes(`node_modules/${lib}`))) {
-						return id.toString().split("node_modules/")[1].split("/")[0].toString();
+						// Take the LAST node_modules/ segment: pnpm nests packages as
+						// node_modules/.pnpm/<pkg>@<ver>/node_modules/<pkg>, so the first
+						// segment is ".pnpm" and would name a hidden dotfile chunk.
+						return id.toString().split("node_modules/").pop()!.split("/")[0].toString();
 					}
 				},
 			},
