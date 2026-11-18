@@ -116,6 +116,7 @@ Two properties keep it from rotting, and they are deliberate:
 
 - **The preset list is read off `templates/*/`,** not written in the script. Adding a preset enrols it automatically.
 - **Which scanners run is decided by what a preset rendered** — `go.mod` → govulncheck + gosec, `ui/package.json` → npm audit — mirroring the `hasGoMod` rule the tool itself uses. A preset matching neither is reported as an explicit `skip` **with its reason**, never omitted silently, because a silent skip is the exact failure the script exists to correct.
+- **npm audit has a named exemption list, `npm_audit_accepted` in `scripts/scan-generated.sh`** — one GHSA id per entry, each with its reason. It is only for an advisory with **no patched version to move to** (today: GHSA-fc5q-39xc-vjpf, picomatch ReDoS, every release <= 4.0.7, reached via vite/typescript-eslint tooling). Any other advisory at the gate level still fails, and an entry that stops matching fails too as a stale exemption, so the list cannot outlive what it excuses.
 
 `iot` is that skip today: C++/PlatformIO with no Go module and no `package.json`, so govulncheck, gosec, osv-scanner and npm audit all have nothing to open — none of them applies, and running one for a green tick would be worse than saying so. Its real dependency risk is the pinned kuino tag, and `pio run` is that gate. It is **not** wired into the script on purpose: it would make every run depend on a PlatformIO install. Run it by hand when touching that preset.
 
