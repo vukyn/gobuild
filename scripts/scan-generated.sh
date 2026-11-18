@@ -39,6 +39,50 @@ cd "$repo_root"
 # below it are still printed.
 npm_audit_level="${NPM_AUDIT_LEVEL:-high}"
 
+# Advisories accepted at or above that level, one GHSA id per entry with its
+# reason. Keep this list as short as it can be: an entry is only for an
+# advisory that has NO patched version to move to, never for one that is merely
+# inconvenient to upgrade. An entry that no longer matches anything fails the
+# run, so the list cannot outlive the advisory it excuses.
+npm_audit_accepted=(
+	# picomatch ReDoS via repeated extglobs: every published picomatch
+	# (<= 4.0.7) is affected and no patched release exists. It arrives through
+	# vite and typescript-eslint, both build/lint tooling that never reaches the
+	# UI bundle. Remove once picomatch ships a fix.
+	GHSA-fc5q-39xc-vjpf
+)
+
+# npm_audit_gate <ui dir>: print the full npm audit report, then fail on any
+# advisory at or above $npm_audit_level that is not in npm_audit_accepted, and
+# on any accepted entry that no longer matches (a stale exemption).
+npm_audit_gate() {
+	(cd "$1" && npm audit) || true
+	# npm audit exits non-zero whenever it finds anything, and pipefail would
+	# turn that into a failure here; the node filter below decides instead.
+	{ (cd "$1" && npm audit --json 2>/dev/null) || true; } | node -e '
+		const order = ["info", "low", "moderate", "high", "critical"];
+		const [level, ...accepted] = process.argv.slice(1);
+		const report = JSON.parse(require("fs").readFileSync(0, "utf8"));
+		const found = new Map();
+		for (const vulnerability of Object.values(report.vulnerabilities || {})) {
+			for (const via of vulnerability.via) {
+				if (typeof via !== "object" || order.indexOf(via.severity) < order.indexOf(level)) continue;
+				const id = (via.url || "").split("/").pop() || String(via.source);
+				found.set(id, `${via.name}: ${via.title}`);
+			}
+		}
+		let failed = false;
+		for (const [id, title] of found) {
+			if (accepted.includes(id)) { console.log(`accepted  ${id}  ${title}`); continue; }
+			console.log(`NOT accepted  ${id}  ${title}`); failed = true;
+		}
+		for (const id of accepted) {
+			if (!found.has(id)) { console.log(`stale exemption  ${id}: no longer reported, remove it from npm_audit_accepted`); failed = true; }
+		}
+		process.exit(failed ? 1 : 0);
+	' "$npm_audit_level" "${npm_audit_accepted[@]}"
+}
+
 failures=0
 summary=()
 
@@ -140,8 +184,8 @@ for preset in "${presets[@]}"; do
 			# resolved here. Without it npm audit and osv-scanner both exit 0
 			# having inspected nothing.
 			fail "$preset: npm audit (could not resolve a lockfile)"
-		elif (cd "$generated/ui" && npm audit --audit-level="$npm_audit_level"); then
-			pass "$preset: npm audit (fails at $npm_audit_level and above)"
+		elif npm_audit_gate "$generated/ui"; then
+			pass "$preset: npm audit (fails at $npm_audit_level and above, ${#npm_audit_accepted[@]} accepted)"
 		else
 			fail "$preset: npm audit (advisories at $npm_audit_level or above)"
 		fi
