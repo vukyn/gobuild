@@ -9,10 +9,10 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/sarulabs/di/v2 v2.5.2
-	github.com/uptrace/bun v1.2.16
-	github.com/uptrace/bun/dialect/sqlitedialect v1.2.16
-	github.com/uptrace/bun/driver/sqliteshim v1.2.16
-	github.com/vukyn/kuery v1.66.0
+	github.com/uptrace/bun v1.3.0
+	github.com/uptrace/bun/dialect/sqlitedialect v1.3.0
+	github.com/uptrace/bun/driver/sqliteshim v1.3.0
+	github.com/vukyn/kuery v1.71.0
 )
 
 // Transitive, pinned forward for a vulnerability fix rather than for a direct
