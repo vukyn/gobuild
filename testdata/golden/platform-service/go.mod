@@ -22,3 +22,15 @@ require (
 // selection takes the maximum, so this line raises it. Drop it once
 // gofiber/template requires v1.2.0 or later itself.
 require github.com/gofiber/utils v1.2.0 // indirect
+
+// Transitive, pinned forward for vulnerability fixes rather than for a direct
+// import. fasthttp (under Fiber) pulls both compressors, and the versions it
+// would otherwise resolve to carry GO-2026-6888 (brotli: excessive memory when
+// decompressing crafted streams) and GO-2026-6865 (compress: panic on two-block
+// frames), both REACHABLE per govulncheck. Minimal version selection takes the
+// maximum, so these lines raise them. Drop them once fasthttp requires
+// brotli v1.2.7 and compress v1.20.2 or later itself.
+require (
+	github.com/andybalholm/brotli v1.2.7 // indirect
+	github.com/klauspost/compress v1.20.2 // indirect
+)
